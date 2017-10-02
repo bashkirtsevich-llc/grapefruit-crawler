@@ -99,3 +99,9 @@ ENV/
 
 # mypy
 .mypy_cache/
+
+#idea
+.idea/
+
+# Local spp settings
+local.py
