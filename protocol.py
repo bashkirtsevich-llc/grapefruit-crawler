@@ -83,7 +83,7 @@ class DHTProtocol:
     def bootstrap(self):
         self.add_nodes_to_routing_table(
             [(generate_node_id(), node) for node in DHTProtocol.INITIAL_NODES] +
-            [(self.node_id, self.transport.socket.getsockname())]
+            [(self.node_id, self.transport.get_extra_info("sockname"))]
         )
 
     def crawl(self):
