@@ -19,9 +19,8 @@ def generate_node_id():
 def xor(node_one_id, node_two_id):
     result = 0
 
-    length = len(node_one_id)
-    for i in range(length):
-        result = (result << 8) + (ord(node_one_id[i]) ^ ord(node_two_id[i]))
+    for i in range(len(node_one_id)):
+        result = (result << 8) + (node_one_id[i] ^ node_two_id[i])
 
     return result
 
