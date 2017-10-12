@@ -92,7 +92,7 @@ class DHTProtocol:
 
     def handle(self, msg, addr):
         try:
-            msg_type = msg["y"]
+            msg_type = str(msg["y"], "utf-8")
 
             if msg_type == "q":
                 self.query_handlers[msg["q"]](msg, addr)
