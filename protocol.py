@@ -7,16 +7,12 @@ from utils import generate_node_id, generate_id, get_routing_table_index, xor, d
 class DHTProtocol:
     NEW_K = 1500
     TABLE_NUM = 160
-    TOKEN_LENGTH = 5
 
-    INITIAL_NODES = [
-        ("router.bittorrent.com", 6881),
-        ("dht.transmissionbt.com", 6881),
-        ("router.utorrent.com", 6881)
-    ]
+    def __init__(self, loop, initial_nodes, node_id=None):
+        self.loop = loop
+        self.initial_nodes = initial_nodes
+        self.node_id = node_id or generate_node_id()
 
-    def __init__(self):
-        self.node_id = generate_node_id()
         self.routing_table = [[] for _ in range(DHTProtocol.TABLE_NUM)]
 
         self.query_handlers = {
@@ -82,16 +78,17 @@ class DHTProtocol:
 
     def bootstrap(self):
         self.add_nodes_to_routing_table(
-            [(generate_node_id(), node) for node in DHTProtocol.INITIAL_NODES] +
+            [(generate_node_id(), node) for node in self.initial_nodes] +
             [(self.node_id, self.transport.get_extra_info("sockname"))]
         )
 
     def crawl(self):
-        while True:
-            target_id = generate_node_id()
+        target_id = generate_node_id()
 
-            for node in self.find_closest_nodes(target_id):
-                self.find_node(node, target_id)
+        for node in self.find_closest_nodes(target_id):
+            self.find_node(node, target_id)
+
+        self.loop.call_soon_threadsafe(self.crawl)
 
     def handle(self, msg, addr):
         try:
@@ -105,6 +102,8 @@ class DHTProtocol:
                     self.handle_find_node_response(msg, addr)
         except KeyError:
             pass
+        except Exception:
+            pass  # Response about error
 
     def handle_find_node_response(self, data, _):
         node_message = data["r"]["nodes"]
@@ -190,7 +189,4 @@ class DHTProtocol:
         self.crawl()
 
     def datagram_received(self, data, addr):
-        try:
-            self.handle(bdecode(data), addr)
-        except:
-            pass
+        self.handle(bdecode(data), addr)
