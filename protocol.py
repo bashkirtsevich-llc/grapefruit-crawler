@@ -36,7 +36,7 @@ class DHTProtocol:
             }
         }
 
-        self.send_message(query, node[1])
+        self.send_message(query, (node[1], node[2]))
 
     def find_closest_nodes(self, target_id, k_value=8):
         r_table_index = get_routing_table_index(xor(self.node_id, target_id))
@@ -77,9 +77,11 @@ class DHTProtocol:
                     self.find_node(node)
 
     def bootstrap(self):
+        socket_info = self.transport.get_extra_info("sockname")
+
         self.add_nodes_to_routing_table(
-            [(generate_node_id(), node) for node in self.initial_nodes] +
-            [(self.node_id, self.transport.get_extra_info("sockname"))]
+            [(generate_node_id(), node[0], node[1]) for node in self.initial_nodes] +
+            [(self.node_id, socket_info[0], socket_info[1])]
         )
 
     def crawl(self):
