@@ -1,7 +1,4 @@
 import math
-from uuid import uuid4
-
-import hashlib
 import os
 
 import socket
@@ -13,7 +10,7 @@ def generate_id():
 
 
 def generate_node_id():
-    return hashlib.sha1(uuid4().bytes).digest()
+    return os.urandom(20)
 
 
 def xor(node_one_id, node_two_id):
