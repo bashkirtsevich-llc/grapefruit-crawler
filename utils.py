@@ -1,8 +1,8 @@
-import math
 import os
+import math
 
-import socket
-import struct
+from socket import inet_ntoa, inet_aton
+from struct import unpack, pack
 
 
 def generate_id():
@@ -29,33 +29,33 @@ def get_routing_table_index(distance):
         return 0
 
 
-def decode_nodes(message):
-    nodes = []
-    if len(message) % 26 != 0:
-        return nodes
+def decode_nodes(nodes):
+    if len(nodes) % 26 != 0:
+        return
 
-    for i in range(0, len(message), 26):
-        node_id = message[i: i + 20]
+    for i in range(0, len(nodes), 26):
+        node_id = nodes[i: i + 20]
 
         try:
-            ip = socket.inet_ntoa(message[i + 20: i + 24])  # from network order to IP address
-            port = struct.unpack("!H", message[i + 24: i + 26])[0]  # "!" means to read by network order
+            ip = inet_ntoa(nodes[i + 20: i + 24])  # from network order to IP address
+            port = unpack("!H", nodes[i + 24: i + 26])[0]  # "!" means to read by network order
         except:
             continue
 
-        nodes.append((node_id, ip, port))
-
-    return nodes
+        yield node_id, ip, port
 
 
 def encode_nodes(nodes):
-    message = ""
+    result = bytes()
+
     for node in nodes:
+        node_id, ip, port = node
         try:
-            ip_message = socket.inet_aton(node[1])
-            port_message = struct.pack("!H", node[2])
+            ip_message = inet_aton(ip)
+            port_message = pack("!H", port)
         except:
             continue  # from IP address to network order
-        message = message + node[0] + ip_message + port_message
 
-    return message
+        result = result + node_id + ip_message + port_message
+
+    return result
