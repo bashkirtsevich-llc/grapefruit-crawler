@@ -6,5 +6,14 @@ initial_nodes = [
     ("router.utorrent.com", 6881)
 ]
 
-svr = DHTCrawler(initial_nodes)
+
+class GrapefruitDHTCrawler(DHTCrawler):
+    async def get_peers_received(self, node_id, info_hash, addr):
+        print("get_peers", node_id, info_hash, addr)
+
+    async def announce_peer_received(self, node_id, info_hash, port, addr):
+        print("announce_peer", node_id, info_hash, port, addr)
+
+
+svr = GrapefruitDHTCrawler(initial_nodes)
 svr.run()

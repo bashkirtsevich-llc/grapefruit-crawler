@@ -17,12 +17,33 @@ class DHTCrawler(asyncio.DatagramProtocol):
         self.transport = None
         self.__running = False
 
-        self.query_handlers = {
-            "ping": self.handle_ping_query,
-            "find_node": self.handle_find_nodes_query,
-            "get_peers": self.handle_get_peers_query,
-            "announce_peer": self.handle_announce_peer_query
-        }
+    def datagram_received(self, data, addr):
+        try:
+            msg = bdecode(data)
+        except:
+            return
+
+        try:
+            self.handle_message(msg, addr)
+        except Exception as e:
+            response = {
+                "y": "e",
+                "e": [202, "Server Error"]
+            }
+
+            if "t" in msg:
+                response["t"] = msg["t"]
+
+            self.send_message(response, addr)
+
+            raise e
+
+    def connection_made(self, transport):
+        self.transport = transport
+
+    def connection_lost(self, exc):
+        self.transport.close()
+        self.stop()
 
     def run(self, port=6881):
         coro = self.loop.create_datagram_endpoint(lambda: self, local_addr=("0.0.0.0", port))
@@ -39,6 +60,30 @@ class DHTCrawler(asyncio.DatagramProtocol):
     def stop(self):
         self.__running = False
         self.loop.call_later(self.interval, self.loop.stop)
+
+    def send_message(self, data, addr):
+        self.transport.sendto(bencode(data), addr)
+
+    def ping(self, addr):
+        self.send_message({
+            "y": "q",
+            "t": generate_id(),
+            "q": "ping",
+            "a": {
+                "id": self.node_id
+            }
+        }, addr)
+
+    def find_node(self, addr, target=None):
+        self.send_message({
+            "t": generate_id(),
+            "y": "q",
+            "q": "find_node",
+            "a": {
+                "id": self.node_id,
+                "target": target or generate_node_id()
+            }
+        }, addr)
 
     def find_closest_nodes(self, target_id, k_value=8):
         r_table_index = get_routing_table_index(xor(self.node_id, target_id))
@@ -80,38 +125,6 @@ class DHTCrawler(asyncio.DatagramProtocol):
                 else:
                     self.find_node((node[1], node[2]))
 
-    async def auto_find_nodes(self):
-        self.__running = True
-
-        while self.__running:
-            await asyncio.sleep(self.interval)
-
-            target_id = generate_node_id()
-
-            for node_id, node_ip, node_port in self.find_closest_nodes(target_id):
-                self.find_node((node_ip, node_port), target_id)
-
-    def datagram_received(self, data, addr):
-        try:
-            msg = bdecode(data)
-        except:
-            return
-
-        try:
-            self.handle_message(msg, addr)
-        except Exception as e:
-            response = {
-                "y": "e",
-                "e": [202, "Server Error"]
-            }
-
-            if "t" in msg:
-                response["t"] = msg["t"]
-
-            self.send_message(response, addr)
-
-            raise e
-
     def handle_message(self, msg, addr):
         msg_type = str(msg.get("y", b"e"), "utf-8")
 
@@ -133,92 +146,88 @@ class DHTCrawler(asyncio.DatagramProtocol):
             nodes = decode_nodes(args["nodes"])
             self.add_nodes_to_routing_table(nodes)
 
+    async def auto_find_nodes(self):
+        self.__running = True
+
+        while self.__running:
+            await asyncio.sleep(self.interval)
+
+            target_id = generate_node_id()
+
+            for node_id, node_ip, node_port in self.find_closest_nodes(target_id):
+                self.find_node((node_ip, node_port), target_id)
+
     async def handle_query(self, msg, addr):
+        args = msg["a"]
+        node_id = args["id"]
         query_type = str(msg["q"], "utf-8")
-        self.query_handlers[query_type](msg, addr)
+
+        if query_type == "ping":
+            self.send_message({
+                "t": msg["t"],
+                "y": "r",
+                "r": {
+                    "id": self.node_id
+                }
+            }, addr)
+
+            await self.ping_received(node_id, addr)
+
+        elif query_type == "find_node":
+            target_node_id = args["target"]
+
+            self.send_message({
+                "t": msg["t"],
+                "y": "r",
+                "r": {
+                    "id": self.node_id,
+                    "nodes": encode_nodes(self.find_closest_nodes(target_node_id))
+                }
+            }, addr)
+
+            await self.find_node_received(node_id, target_node_id, addr)
+
+        elif query_type == "get_peers":
+            info_hash = args["info_hash"]
+            token = generate_node_id()
+
+            self.send_message({
+                "t": msg["t"],
+                "y": "r",
+                "r": {
+                    "id": self.node_id,
+                    "nodes": encode_nodes(self.find_closest_nodes(info_hash)),
+                    "token": token
+                }
+            }, addr)
+
+            await self.get_peers_received(node_id, info_hash, addr)
+
+        elif query_type == "announce_peer":
+            info_hash = args["info_hash"]
+            port = args.get("port", None)
+
+            self.send_message({
+                "t": msg["t"],
+                "y": "r",
+                "r": {
+                    "id": self.node_id
+                }
+            }, addr)
+
+            await self.announce_peer_received(node_id, info_hash, port, addr)
+
+        await asyncio.sleep(self.interval)
         self.find_node(addr)
 
-    def handle_ping_query(self, msg, addr):
-        self.send_message({
-            "t": msg["t"],
-            "y": "r",
-            "r": {
-                "id": self.node_id
-            }
-        }, addr)
+    async def ping_received(self, node_id, addr):
+        pass
 
-    def handle_find_nodes_query(self, msg, addr):
-        target_node_id = msg["a"]["target"]
+    async def find_node_received(self, node_id, target, addr):
+        pass
 
-        self.send_message({
-            "t": msg["t"],
-            "y": "r",
-            "r": {
-                "id": self.node_id,
-                "nodes": encode_nodes(self.find_closest_nodes(target_node_id))
-            }
-        }, addr)
+    async def get_peers_received(self, node_id, info_hash, addr):
+        pass
 
-    def handle_get_peers_query(self, msg, addr):
-        args = msg["a"]
-        info_hash = args["info_hash"]
-        token = generate_node_id()
-
-        self.send_message({
-            "t": msg["t"],
-            "y": "r",
-            "r": {
-                "id": self.node_id,
-                "nodes": encode_nodes(self.find_closest_nodes(info_hash)),
-                "token": token
-            }
-        }, addr)
-
-        # await self.handle_get_peers(info_hash, addr)
-        print("get_peers", info_hash, addr)
-
-    def handle_announce_peer_query(self, msg, addr):
-        args = msg["a"]
-        info_hash = args["info_hash"]
-
-        self.send_message({
-            "t": msg["t"],
-            "y": "r",
-            "r": {
-                "id": self.node_id
-            }
-        }, addr)
-
-        # await self.handle_announce_peer(info_hash, addr, args.get("port", addr[1]))
-        print("announce", info_hash, addr, args.get("port", addr[1]))
-
-    def ping(self, addr):
-        self.send_message({
-            "y": "q",
-            "t": generate_id(),
-            "q": "ping",
-            "a": {
-                "id": self.node_id
-            }
-        }, addr)
-
-    def connection_made(self, transport):
-        self.transport = transport
-
-    def connection_lost(self, exc):
-        self.transport.close()
-        self.stop()
-
-    def send_message(self, data, addr):
-        self.transport.sendto(bencode(data), addr)
-
-    def find_node(self, addr, target=None):
-        self.send_message({
-            "t": generate_id(),
-            "y": "q",
-            "q": "find_node",
-            "a": {
-                "id": self.node_id,
-                "target": target or generate_node_id()
-            }
-        }, addr)
+    async def announce_peer_received(self, node_id, info_hash, port, addr):
+        pass
