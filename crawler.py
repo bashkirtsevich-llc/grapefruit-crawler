@@ -132,14 +132,14 @@ class DHTCrawler(asyncio.DatagramProtocol):
             return
 
         if msg_type == "r":
-            return self.handle_response(msg, addr)
+            return self.handle_response(msg)
 
         if msg_type == "q":
             return asyncio.ensure_future(
                 self.handle_query(msg, addr), loop=self.loop
             )
 
-    def handle_response(self, msg, addr):
+    def handle_response(self, msg):
         args = msg["r"]
 
         if "nodes" in args:
