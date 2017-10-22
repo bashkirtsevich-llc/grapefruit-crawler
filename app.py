@@ -1,4 +1,33 @@
+import os
+import motor.motor_asyncio
 from crawler import DHTCrawler
+
+
+class GrapefruitDHTCrawler(DHTCrawler):
+    def __init__(self, db_url, db_name, bootstrap_nodes, node_id=None, loop=None, interval=0.001):
+        client = motor.motor_asyncio.AsyncIOMotorClient(db_url)
+        self.db = client[db_name]
+
+        super().__init__(bootstrap_nodes, node_id, loop, interval)
+
+    async def store_info_hash(self, info_hash):
+        if await self.db.hashes.count(filter={"info_hash": info_hash}) == 0:
+            await self.db.hashes.insert_one({"info_hash": info_hash})
+
+    async def get_peers_received(self, node_id, info_hash, addr):
+        await self.store_info_hash(info_hash)
+
+    async def announce_peer_received(self, node_id, info_hash, port, addr):
+        await self.store_info_hash(info_hash)
+
+
+try:
+    import local
+except ImportError:
+    pass
+
+db_url = os.environ["MONGODB_URL"]
+db_name = os.getenv("MONGODB_BASE_NAME", "grapefruit")
 
 initial_nodes = [
     ("router.bittorrent.com", 6881),
@@ -6,14 +35,5 @@ initial_nodes = [
     ("router.utorrent.com", 6881)
 ]
 
-
-class GrapefruitDHTCrawler(DHTCrawler):
-    async def get_peers_received(self, node_id, info_hash, addr):
-        print("get_peers", node_id, info_hash, addr)
-
-    async def announce_peer_received(self, node_id, info_hash, port, addr):
-        print("announce_peer", node_id, info_hash, port, addr)
-
-
-svr = GrapefruitDHTCrawler(initial_nodes)
+svr = GrapefruitDHTCrawler(db_url, db_name, initial_nodes)
 svr.run()
