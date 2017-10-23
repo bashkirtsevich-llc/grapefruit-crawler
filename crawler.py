@@ -64,16 +64,6 @@ class DHTCrawler(asyncio.DatagramProtocol):
     def send_message(self, data, addr):
         self.transport.sendto(bencode(data), addr)
 
-    def ping(self, addr):
-        self.send_message({
-            "y": "q",
-            "t": generate_id(),
-            "q": "ping",
-            "a": {
-                "id": self.node_id
-            }
-        }, addr)
-
     def find_node(self, addr, target=None):
         self.send_message({
             "t": generate_id(),
