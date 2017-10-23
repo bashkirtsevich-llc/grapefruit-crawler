@@ -1,6 +1,7 @@
 import os
 import motor.motor_asyncio
 from crawler import DHTCrawler
+from binascii import hexlify
 
 
 class GrapefruitDHTCrawler(DHTCrawler):
@@ -11,8 +12,10 @@ class GrapefruitDHTCrawler(DHTCrawler):
         super().__init__(bootstrap_nodes, node_id, loop, interval)
 
     async def store_info_hash(self, info_hash):
-        if await self.db.hashes.count(filter={"info_hash": info_hash}) == 0:
-            await self.db.hashes.insert_one({"info_hash": info_hash})
+        info_hash_hex = str(hexlify(info_hash), "utf-8")
+
+        if await self.db.hashes.count(filter={"info_hash": info_hash_hex}) == 0:
+            await self.db.hashes.insert_one({"info_hash": info_hash_hex})
 
     async def get_peers_received(self, node_id, info_hash, addr):
         await self.store_info_hash(info_hash)
