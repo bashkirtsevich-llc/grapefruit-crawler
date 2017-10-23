@@ -45,8 +45,8 @@ class DHTCrawler(asyncio.DatagramProtocol):
         self.transport.close()
         self.stop()
 
-    def run(self, port=6881):
-        coro = self.loop.create_datagram_endpoint(lambda: self, local_addr=("0.0.0.0", port))
+    def run(self, host="0.0.0.0", port=6881):
+        coro = self.loop.create_datagram_endpoint(lambda: self, local_addr=(host, port))
         transport, _ = self.loop.run_until_complete(coro)
 
         # Bootstrap
