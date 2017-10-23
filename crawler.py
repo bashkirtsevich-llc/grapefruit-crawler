@@ -25,7 +25,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
 
         try:
             self.handle_message(msg, addr)
-        except Exception as e:
+        except:
             response = {
                 "y": "e",
                 "e": [202, "Server Error"]
@@ -36,7 +36,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
 
             self.send_message(response, addr)
 
-            raise e
+            raise
 
     def connection_made(self, transport):
         self.transport = transport
