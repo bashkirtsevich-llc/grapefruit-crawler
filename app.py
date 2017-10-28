@@ -5,11 +5,11 @@ from binascii import hexlify
 
 
 class GrapefruitDHTCrawler(DHTCrawler):
-    def __init__(self, db_url, db_name, bootstrap_nodes, node_id=None, loop=None, interval=0.001):
+    def __init__(self, db_url, db_name, **kwargs):
         client = motor.motor_asyncio.AsyncIOMotorClient(db_url)
         self.db = client[db_name]
 
-        super().__init__(bootstrap_nodes, node_id, loop, interval)
+        super().__init__(**kwargs)
 
     async def store_info_hash(self, info_hash):
         info_hash_hex = str(hexlify(info_hash), "utf-8")
@@ -38,5 +38,5 @@ initial_nodes = [
     ("router.utorrent.com", 6881)
 ]
 
-svr = GrapefruitDHTCrawler(db_url, db_name, initial_nodes)
+svr = GrapefruitDHTCrawler(db_url, db_name, bootstrap_nodes=initial_nodes, interval=0.01)
 svr.run()
