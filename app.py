@@ -38,5 +38,5 @@ initial_nodes = [
     ("router.utorrent.com", 6881)
 ]
 
-svr = GrapefruitDHTCrawler(db_url, db_name, bootstrap_nodes=initial_nodes, interval=0.01)
+svr = GrapefruitDHTCrawler(db_url, db_name, bootstrap_nodes=initial_nodes, interval=0.1)
 svr.run()
