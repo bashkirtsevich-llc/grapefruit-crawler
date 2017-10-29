@@ -1,7 +1,13 @@
+import asyncio
 import os
 import motor.motor_asyncio
 from crawler import DHTCrawler
 from binascii import hexlify
+
+try:
+    import local
+except ImportError:
+    pass
 
 
 class GrapefruitDHTCrawler(DHTCrawler):
@@ -24,19 +30,18 @@ class GrapefruitDHTCrawler(DHTCrawler):
         await self.store_info_hash(info_hash)
 
 
-try:
-    import local
-except ImportError:
-    pass
+if __name__ == '__main__':
+    db_url = os.environ["MONGODB_URL"]
+    db_name = os.getenv("MONGODB_BASE_NAME", "grapefruit")
 
-db_url = os.environ["MONGODB_URL"]
-db_name = os.getenv("MONGODB_BASE_NAME", "grapefruit")
+    initial_nodes = [
+        ("router.bittorrent.com", 6881),
+        ("dht.transmissionbt.com", 6881),
+        ("router.utorrent.com", 6881)
+    ]
 
-initial_nodes = [
-    ("router.bittorrent.com", 6881),
-    ("dht.transmissionbt.com", 6881),
-    ("router.utorrent.com", 6881)
-]
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
 
-svr = GrapefruitDHTCrawler(db_url, db_name, bootstrap_nodes=initial_nodes, interval=0.1)
-svr.run()
+    svr = GrapefruitDHTCrawler(db_url, db_name, loop=loop, bootstrap_nodes=initial_nodes, interval=0.1)
+    svr.run()
