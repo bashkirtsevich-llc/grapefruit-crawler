@@ -1,6 +1,7 @@
 import asyncio
 import os
 import motor.motor_asyncio
+from pymongo import ASCENDING
 from crawler import DHTCrawler
 from binascii import hexlify
 
@@ -16,6 +17,17 @@ class GrapefruitDHTCrawler(DHTCrawler):
         self.db = client[db_name]
 
         super().__init__(**kwargs)
+
+        self.loop.run_until_complete(self.create_indexes())
+
+    async def create_indexes(self):
+        index_info = {"name": "info_hash", "keys": [("info_hash", ASCENDING)], "unique": True}
+
+        hashes = self.db.hashes
+        hashes_indexes = await hashes.index_information()
+
+        if index_info["name"] not in hashes_indexes:
+            await hashes.create_index(**index_info)
 
     async def store_info_hash(self, info_hash):
         info_hash_hex = str(hexlify(info_hash), "utf-8")
