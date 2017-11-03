@@ -5,11 +5,6 @@ from pymongo import ASCENDING
 from crawler import DHTCrawler
 from binascii import hexlify
 
-try:
-    import local
-except ImportError:
-    pass
-
 
 class GrapefruitDHTCrawler(DHTCrawler):
     def __init__(self, db_url, db_name, **kwargs):
