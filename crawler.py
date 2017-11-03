@@ -2,7 +2,7 @@ import asyncio
 from bencode import bencode, bdecode
 from random import randint
 
-from utils import generate_node_id, generate_id, get_routing_table_index, decode_nodes, encode_nodes
+from utils import generate_node_id, generate_id, get_routing_table_index, xor, decode_nodes, encode_nodes
 
 
 class DHTCrawler(asyncio.DatagramProtocol):
@@ -76,7 +76,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
         }, addr)
 
     def find_closest_nodes(self, target_id, k_value=8):
-        r_table_index = get_routing_table_index(self.node_id ^ target_id)
+        r_table_index = get_routing_table_index(xor(self.node_id, target_id))
 
         k_closest_nodes = []
 
@@ -104,7 +104,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
         new_k = 1500
 
         for node in nodes:
-            r_table_index = get_routing_table_index(node[0] ^ self.node_id)
+            r_table_index = get_routing_table_index(xor(node[0], self.node_id))
 
             if len(self.routing_table[r_table_index]) < new_k:
                 self.routing_table[r_table_index].append(node)
@@ -163,14 +163,13 @@ class DHTCrawler(asyncio.DatagramProtocol):
 
         elif query_type == "find_node":
             target_node_id = args["target"]
-            nodes = encode_nodes(self.find_closest_nodes(int.from_bytes(target_node_id, byteorder='big')))
 
             self.send_message({
                 "t": msg["t"],
                 "y": "r",
                 "r": {
                     "id": self.node_id,
-                    "nodes": nodes
+                    "nodes": encode_nodes(self.find_closest_nodes(target_node_id))
                 }
             }, addr)
 
@@ -178,16 +177,14 @@ class DHTCrawler(asyncio.DatagramProtocol):
 
         elif query_type == "get_peers":
             info_hash = args["info_hash"]
-
             token = generate_node_id()
-            nodes = encode_nodes(self.find_closest_nodes(int.from_bytes(info_hash, byteorder='big')))
 
             self.send_message({
                 "t": msg["t"],
                 "y": "r",
                 "r": {
                     "id": self.node_id,
-                    "nodes": nodes,
+                    "nodes": encode_nodes(self.find_closest_nodes(info_hash)),
                     "token": token
                 }
             }, addr)
