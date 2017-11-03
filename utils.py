@@ -12,15 +12,6 @@ def generate_node_id():
     return os.urandom(20)
 
 
-def xor(node_one_id, node_two_id):
-    result = 0
-
-    for i in range(len(node_one_id)):
-        result = (result << 8) + (node_one_id[i] ^ node_two_id[i])
-
-    return result
-
-
 def get_routing_table_index(distance):
     if distance:
         return int(math.floor(math.log(math.fabs(distance), 2.0)))
