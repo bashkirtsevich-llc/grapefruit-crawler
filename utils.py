@@ -2,7 +2,6 @@ import os
 import math
 
 from socket import inet_ntoa, inet_aton
-from struct import unpack, pack
 
 
 def generate_id():
@@ -34,13 +33,9 @@ def decode_nodes(nodes):
         return
 
     for i in range(0, len(nodes), 26):
-        node_id = nodes[i: i + 20]
-
-        try:
-            ip = inet_ntoa(nodes[i + 20: i + 24])  # from network order to IP address
-            port = unpack("!H", nodes[i + 24: i + 26])[0]  # "!" means to read by network order
-        except:
-            continue
+        node_id = int.from_bytes(nodes[i: i + 20], byteorder='big')
+        ip = inet_ntoa(nodes[i + 20: i + 24])  # from network order to IP address
+        port = int.from_bytes(nodes[i + 24: i + 26], byteorder='big')
 
         yield node_id, ip, port
 
@@ -48,14 +43,11 @@ def decode_nodes(nodes):
 def encode_nodes(nodes):
     result = bytes()
 
-    for node in nodes:
-        node_id, ip, port = node
-        try:
-            ip_message = inet_aton(ip)
-            port_message = pack("!H", port)
-        except:
-            continue  # from IP address to network order
+    for node_id, node_ip, node_port in nodes:
+        node_id_bytes = node_id.to_bytes(20, byteorder='big')
+        node_ip_bytes = inet_aton(node_ip)
+        node_port_bytes = node_port.to_bytes(2, byteorder='big')
 
-        result = result + node_id + ip_message + port_message
+        result = result + node_id_bytes + node_ip_bytes + node_port_bytes
 
     return result
