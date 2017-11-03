@@ -9,7 +9,7 @@ def generate_id():
 
 
 def generate_node_id():
-    return os.urandom(20)
+    return int.from_bytes(os.urandom(20), byteorder='big')
 
 
 def get_routing_table_index(distance):
