@@ -163,13 +163,14 @@ class DHTCrawler(asyncio.DatagramProtocol):
 
         elif query_type == "find_node":
             target_node_id = args["target"]
+            nodes = encode_nodes(self.find_closest_nodes(int.from_bytes(target_node_id, byteorder='big')))
 
             self.send_message({
                 "t": msg["t"],
                 "y": "r",
                 "r": {
                     "id": self.node_id,
-                    "nodes": encode_nodes(self.find_closest_nodes(target_node_id))
+                    "nodes": nodes
                 }
             }, addr)
 
