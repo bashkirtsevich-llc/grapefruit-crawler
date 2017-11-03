@@ -177,14 +177,16 @@ class DHTCrawler(asyncio.DatagramProtocol):
 
         elif query_type == "get_peers":
             info_hash = args["info_hash"]
+
             token = generate_node_id()
+            nodes = encode_nodes(self.find_closest_nodes(int.from_bytes(info_hash, byteorder='big')))
 
             self.send_message({
                 "t": msg["t"],
                 "y": "r",
                 "r": {
                     "id": self.node_id,
-                    "nodes": encode_nodes(self.find_closest_nodes(info_hash)),
+                    "nodes": nodes,
                     "token": token
                 }
             }, addr)
