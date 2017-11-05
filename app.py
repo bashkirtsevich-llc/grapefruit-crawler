@@ -1,9 +1,11 @@
 import asyncio
 import os
+from binascii import hexlify
+
 import motor.motor_asyncio
 from pymongo import ASCENDING
+
 from crawler import DHTCrawler
-from binascii import hexlify
 
 
 class GrapefruitDHTCrawler(DHTCrawler):
