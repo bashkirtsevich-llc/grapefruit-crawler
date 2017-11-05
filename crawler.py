@@ -2,7 +2,7 @@ import asyncio
 from bencode import bencode, bdecode
 from random import randint
 
-from utils import generate_node_id, generate_id, get_routing_table_index, xor, decode_nodes, encode_nodes
+from utils import generate_node_id, generate_id, get_routing_table_index, xor, decode_nodes, encode_nodes, get_rand_bool
 
 
 class DHTCrawler(asyncio.DatagramProtocol):
@@ -109,7 +109,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
             if len(self.routing_table[r_table_index]) < new_k:
                 self.routing_table[r_table_index].append(node)
             else:
-                if randint(0, 1):
+                if get_rand_bool():
                     index = randint(0, new_k - 1)
                     self.routing_table[r_table_index][index] = node
                 else:

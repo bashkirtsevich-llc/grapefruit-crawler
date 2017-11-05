@@ -1,6 +1,6 @@
-import os
 import math
-
+import os
+from random import getrandbits
 from socket import inet_ntoa, inet_aton
 
 
@@ -14,6 +14,10 @@ def generate_node_id():
 
 def xor(node_one_id, node_two_id):
     return int.from_bytes(node_one_id, "big") ^ int.from_bytes(node_two_id, "big")
+
+
+def get_rand_bool():
+    return bool(getrandbits(1))
 
 
 def get_routing_table_index(distance):
