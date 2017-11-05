@@ -1,6 +1,8 @@
 import asyncio
+from heapq import nsmallest
+from random import sample
+
 from bencode import bencode, bdecode
-from random import randint
 
 from utils import generate_node_id, generate_id, get_routing_table_index, xor, decode_nodes, encode_nodes, get_rand_bool
 
@@ -12,7 +14,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
         self.bootstrap_nodes = bootstrap_nodes
         self.interval = interval
 
-        self.routing_table = [[] for _ in range(160)]
+        self.routing_table = [set() for _ in range(160)]
 
         self.transport = None
         self.__running = False
@@ -75,45 +77,39 @@ class DHTCrawler(asyncio.DatagramProtocol):
             }
         }, addr)
 
-    def find_closest_nodes(self, target_id, k_value=8):
-        r_table_index = get_routing_table_index(xor(self.node_id, target_id))
+    def get_closest_nodes(self, target_id, k_value=8):
+        def calc_distance(node):
+            return xor(node[0], target_id)
 
-        k_closest_nodes = []
+        closest = set()
 
-        index = r_table_index
-        while index >= 0 and len(k_closest_nodes) < k_value:
-            for node in self.routing_table[index]:
-                if len(k_closest_nodes) < k_value:
-                    k_closest_nodes.append(node)
-                else:
-                    break
+        r_table_idx = get_routing_table_index(xor(self.node_id, target_id))
+
+        index = r_table_idx
+        while index >= 0 and len(closest) < k_value:
+            closest |= set(nsmallest(k_value, self.routing_table[index], calc_distance))
             index -= 1
 
-        index = r_table_index + 1
-        while index < 160 and len(k_closest_nodes) < k_value:
-            for node in self.routing_table[index]:
-                if len(k_closest_nodes) < k_value:
-                    k_closest_nodes.append(node)
-                else:
-                    break
+        index = r_table_idx + 1
+        while index < 160 and len(closest) < k_value:
+            closest |= set(nsmallest(k_value, self.routing_table[index], calc_distance))
             index += 1
 
-        return k_closest_nodes
+        return nsmallest(k_value, closest, calc_distance)
 
     def add_nodes_to_routing_table(self, nodes):
         new_k = 1500
 
         for node in nodes:
             r_table_index = get_routing_table_index(xor(node[0], self.node_id))
+            rt = self.routing_table[r_table_index]
 
-            if len(self.routing_table[r_table_index]) < new_k:
-                self.routing_table[r_table_index].append(node)
+            if len(rt) < new_k:
+                rt.add(node)
+            elif get_rand_bool():
+                rt.remove(sample(rt, 1)[0])
             else:
-                if get_rand_bool():
-                    index = randint(0, new_k - 1)
-                    self.routing_table[r_table_index][index] = node
-                else:
-                    self.find_node((node[1], node[2]))
+                self.find_node((node[1], node[2]))
 
     def handle_message(self, msg, addr):
         if "y" in msg:
@@ -142,7 +138,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
 
             target_id = generate_node_id()
 
-            for node_id, node_ip, node_port in self.find_closest_nodes(target_id):
+            for node_id, node_ip, node_port in self.get_closest_nodes(target_id):
                 self.find_node((node_ip, node_port), target_id)
 
     async def handle_query(self, msg, addr):
@@ -169,7 +165,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
                 "y": "r",
                 "r": {
                     "id": self.node_id,
-                    "nodes": encode_nodes(self.find_closest_nodes(target_node_id))
+                    "nodes": encode_nodes(self.get_closest_nodes(target_node_id))
                 }
             }, addr)
 
@@ -184,7 +180,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
                 "y": "r",
                 "r": {
                     "id": self.node_id,
-                    "nodes": encode_nodes(self.find_closest_nodes(info_hash)),
+                    "nodes": encode_nodes(self.get_closest_nodes(info_hash)),
                     "token": token
                 }
             }, addr)
