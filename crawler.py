@@ -44,8 +44,8 @@ class DHTCrawler(asyncio.DatagramProtocol):
         self.transport = transport
 
     def connection_lost(self, exc):
-        self.transport.close()
         self.stop()
+        self.transport.close()
 
     def run(self, host="0.0.0.0", port=6881):
         coro = self.loop.create_datagram_endpoint(lambda: self, local_addr=(host, port))
