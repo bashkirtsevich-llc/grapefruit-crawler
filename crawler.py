@@ -1,10 +1,10 @@
 import asyncio
-from heapq import nsmallest
 from random import sample
 
 from bencode import bencode, bdecode
 
-from utils import generate_node_id, generate_id, get_routing_table_index, xor, decode_nodes, encode_nodes, get_rand_bool
+from utils import (generate_node_id, generate_id, get_routing_table_index, xor, decode_nodes, encode_nodes,
+                   get_rand_bool, fetch_k_closest_nodes)
 
 
 class DHTCrawler(asyncio.DatagramProtocol):
@@ -78,24 +78,21 @@ class DHTCrawler(asyncio.DatagramProtocol):
         }, addr)
 
     def get_closest_nodes(self, target_id, k_value=8):
-        def calc_distance(node):
-            return xor(node[0], target_id)
-
         closest = set()
 
         r_table_idx = get_routing_table_index(xor(self.node_id, target_id))
 
         index = r_table_idx
         while index >= 0 and len(closest) < k_value:
-            closest |= set(nsmallest(k_value, self.routing_table[index], calc_distance))
+            closest |= set(fetch_k_closest_nodes(self.routing_table[index], target_id, k_value))
             index -= 1
 
         index = r_table_idx + 1
         while index < 160 and len(closest) < k_value:
-            closest |= set(nsmallest(k_value, self.routing_table[index], calc_distance))
+            closest |= set(fetch_k_closest_nodes(self.routing_table[index], target_id, k_value))
             index += 1
 
-        return nsmallest(k_value, closest, calc_distance)
+        return fetch_k_closest_nodes(closest, target_id, k_value)
 
     def add_nodes_to_routing_table(self, nodes):
         new_k = 1500
