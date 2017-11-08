@@ -32,6 +32,17 @@ def get_routing_table_index(distance):
         return 0
 
 
+def decode_values(values):
+    for value in values:
+        if len(value) % 6 != 0:
+            return
+
+        ip = inet_ntoa(value[0: 4])  # from network order to IP address
+        port = int.from_bytes(value[4: 6], "big")
+
+        yield ip, port
+
+
 def decode_nodes(nodes):
     if len(nodes) % 26 != 0:
         return
