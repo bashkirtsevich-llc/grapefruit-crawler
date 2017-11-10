@@ -143,17 +143,16 @@ class DHTCrawler(asyncio.DatagramProtocol):
             new_nodes = set(fetch_k_closest_nodes(old_nodes | nodes, info_hash))
             new_values = old_values | values
 
-            for node in new_nodes:
-                self.get_peers((node[1], node[2]), info_hash, t)
-
             if new_nodes == old_nodes:
+                new_nodes = set(self.get_closest_nodes(info_hash))
                 attempts_count -= 1
-            else:
-                attempts_count = 8
 
             if attempts_count > 0:
                 self.searchers[t] = (info_hash, new_nodes, new_values, attempts_count)
-            else:
+
+                for node in new_nodes:
+                    self.get_peers((node[1], node[2]), info_hash, t)
+            elif new_values:
                 # Callback with peers
                 print("peers for", str(hexlify(info_hash), "utf-8"), new_values)
 
