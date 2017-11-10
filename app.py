@@ -17,6 +17,9 @@ class GrapefruitDHTCrawler(DHTCrawler):
 
         self.loop.run_until_complete(self.create_indexes())
 
+    def hexlify_info_hash(self, info_hash):
+        return str(hexlify(info_hash), "utf-8")
+
     async def create_indexes(self):
         index_info = {"name": "info_hash", "keys": [("info_hash", ASCENDING)], "unique": True}
 
@@ -27,10 +30,15 @@ class GrapefruitDHTCrawler(DHTCrawler):
             await hashes.create_index(**index_info)
 
     async def store_info_hash(self, info_hash):
-        info_hash_hex = str(hexlify(info_hash), "utf-8")
-
+        info_hash_hex = self.hexlify_info_hash(info_hash)
         if await self.db.hashes.count(filter={"info_hash": info_hash_hex}) == 0:
             await self.db.hashes.insert_one({"info_hash": info_hash_hex})
+
+    async def is_peers_needed(self, info_hash):
+        info_hash_hex = self.hexlify_info_hash(info_hash)
+        result = await self.db.hashes.count(filter={"info_hash": info_hash_hex})
+
+        return result == 0
 
     async def get_peers_received(self, node_id, info_hash, addr):
         await self.store_info_hash(info_hash)

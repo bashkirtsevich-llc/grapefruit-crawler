@@ -234,7 +234,8 @@ class DHTCrawler(asyncio.DatagramProtocol):
                 }
             }, addr)
 
-            self.add_peers_searcher(info_hash)
+            if await self.is_peers_needed(info_hash):
+                self.add_peers_searcher(info_hash)
 
             await self.get_peers_received(node_id, info_hash, addr)
 
@@ -250,12 +251,16 @@ class DHTCrawler(asyncio.DatagramProtocol):
                 }
             }, addr)
 
-            self.add_peers_searcher(info_hash)
+            if await self.is_peers_needed(info_hash):
+                self.add_peers_searcher(info_hash)
 
             await self.announce_peer_received(node_id, info_hash, port, addr)
 
         await asyncio.sleep(self.interval)
         self.find_node(addr)
+
+    async def is_peers_needed(self, info_hash):
+        return False
 
     async def ping_received(self, node_id, addr):
         pass
