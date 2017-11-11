@@ -161,7 +161,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
 
             if msg_type == "r":
                 return asyncio.ensure_future(
-                    self.handle_response(msg)
+                    self.handle_response(msg), loop=self.loop
                 )
 
             if msg_type == "q":
