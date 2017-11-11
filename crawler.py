@@ -144,7 +144,6 @@ class DHTCrawler(asyncio.DatagramProtocol):
             new_values = old_values | values
 
             if new_nodes == old_nodes:
-                new_nodes = set(self.get_closest_nodes(info_hash))
                 attempts_count -= 1
 
             if attempts_count > 0:
