@@ -1,6 +1,5 @@
 import asyncio
 from hashlib import sha1
-from struct import pack, unpack
 from time import sleep
 
 from bencode import bencode, bdecode, decode_dict
@@ -25,8 +24,8 @@ class BitTorrentProtocol(asyncio.Protocol):
         self.transport = transport
 
     def send_extended_message(self, message_id, message_data):
-        buf = pack("BB", 20, message_id) + bytes(bencode(message_data), "utf-8")
-        self.transport.write(pack("!I", len(buf)) + buf)
+        buf = b"\x14" + message_id.to_bytes(1, "big") + bencode(message_data)
+        self.transport.write(len(buf).to_bytes(4, "big") + buf)
 
     def handle_message(self, msg_data):
         if msg_data[0] == 0:
@@ -63,8 +62,11 @@ class BitTorrentProtocol(asyncio.Protocol):
                 for key in sorted(self.metadata.keys()):
                     metadata += self.metadata[key]
 
-                if len(metadata) == r["total_size"] and sha1(metadata).digest() == self.info_hash:
-                    print("METADATA!", metadata)
+                if len(metadata) == r["total_size"]:
+                    if sha1(metadata).digest() == self.info_hash:
+                        print("METADATA!", bdecode(metadata))
+
+                    self.transport.close()
 
     def data_received(self, data):
         def parse_message(message):
@@ -78,7 +80,7 @@ class BitTorrentProtocol(asyncio.Protocol):
                 self.need_handshake = False
         else:
             while len(self.buffer) >= 4:
-                msg_len = unpack("!I", self.buffer[:4])[0]
+                msg_len = int.from_bytes(self.buffer[:4], "big")
 
                 if len(self.buffer) >= msg_len + 4:
                     message = parse_message(self.buffer[4: msg_len + 4])
