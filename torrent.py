@@ -39,7 +39,7 @@ class BitTorrentProtocol(asyncio.Protocol):
                 hs_response = {
                     "e": 0,
                     "metadata_size": metadata_size,
-                    "v": "uTorrent 3.2.3",
+                    "v": "μTorrent 3.2.3",
                     "m": {"ut_metadata": 1},
                     "reqq": 255
                 }
