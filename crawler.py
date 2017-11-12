@@ -1,5 +1,4 @@
 import asyncio
-from binascii import hexlify
 from random import sample
 
 from bencode import bencode, bdecode
@@ -33,23 +32,9 @@ class DHTCrawler(asyncio.DatagramProtocol):
     def datagram_received(self, data, addr):
         try:
             msg = bdecode(data)
+            asyncio.ensure_future(self.handle_message(msg, addr), loop=self.loop)
         except:
-            return
-
-        try:
-            self.handle_message(msg, addr)
-        except:
-            response = {
-                "y": "e",
-                "e": [202, "Server Error"]
-            }
-
-            if "t" in msg:
-                response["t"] = msg["t"]
-
-            self.send_message(response, addr)
-
-            raise
+            pass
 
     def run(self, host="0.0.0.0", port=6881):
         coro = self.loop.create_datagram_endpoint(lambda: self, local_addr=(host, port))
@@ -126,7 +111,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
 
             self.routing_table[r_table_index] = rt  # ???
 
-    def add_peers_searcher(self, info_hash):
+    async def add_peers_searcher(self, info_hash):
         self.searchers_seq += 1
 
         t = self.searchers_seq.to_bytes(4, "big")
@@ -135,39 +120,43 @@ class DHTCrawler(asyncio.DatagramProtocol):
         for node in self.get_closest_nodes(info_hash):
             self.get_peers((node[1], node[2]), info_hash, t)
 
-    def update_peers_searcher(self, t, nodes, values):
+    async def update_peers_searcher(self, t, nodes, values):
         searcher = self.searchers.pop(t, None)
-        if searcher:
-            info_hash, old_nodes, old_values, attempts_count = searcher
+        if not searcher:
+            return
 
-            new_nodes = set(fetch_k_closest_nodes(old_nodes | nodes, info_hash))
-            new_values = old_values | values
+        info_hash, old_nodes, old_values, attempts_count = searcher
 
-            if new_nodes == old_nodes:
-                attempts_count -= 1
+        new_nodes = set(fetch_k_closest_nodes(old_nodes | nodes, info_hash))
+        new_values = old_values | values
 
-            if attempts_count > 0:
-                self.searchers[t] = (info_hash, new_nodes, new_values, attempts_count)
+        if new_nodes == old_nodes:
+            attempts_count -= 1
 
-                for node in new_nodes:
-                    self.get_peers((node[1], node[2]), info_hash, t)
-            elif new_values:
-                # Callback with peers
-                print("peers for", str(hexlify(info_hash), "utf-8"), new_values)
+        if attempts_count > 0:
+            self.searchers[t] = (info_hash, new_nodes, new_values, attempts_count)
 
-    def handle_message(self, msg, addr):
-        if "y" in msg:
-            msg_type = str(msg["y"], "utf-8")
+            for node in new_nodes:
+                self.get_peers((node[1], node[2]), info_hash, t)
+        elif new_values:
+            await self.peers_values_received(info_hash, new_values)
+
+    async def handle_message(self, msg, addr):
+        try:
+            msg_type = str(msg.get("y", b""), "utf-8")
 
             if msg_type == "r":
-                return asyncio.ensure_future(
-                    self.handle_response(msg), loop=self.loop
-                )
+                await self.handle_response(msg)
+            elif msg_type == "q":
+                await self.handle_query(msg, addr)
+        except:
+            self.send_message({
+                "y": "e",
+                "e": [202, "Server Error"],
+                "t": msg.get("t", "")
+            }, addr)
 
-            if msg_type == "q":
-                return asyncio.ensure_future(
-                    self.handle_query(msg, addr), loop=self.loop
-                )
+            raise
 
     async def handle_response(self, msg):
         args = msg["r"]
@@ -175,7 +164,8 @@ class DHTCrawler(asyncio.DatagramProtocol):
         nodes = set(decode_nodes(args.get("nodes", b"")))
         values = set(decode_values(args.get("values", [])))
 
-        self.update_peers_searcher(msg["t"], nodes, values)
+        # TODO: Add delay before start
+        await self.update_peers_searcher(msg["t"], nodes, values)
         self.add_nodes_to_routing_table(nodes)
 
     async def auto_find_nodes(self):
@@ -233,9 +223,6 @@ class DHTCrawler(asyncio.DatagramProtocol):
                 }
             }, addr)
 
-            if await self.is_peers_needed(info_hash):
-                self.add_peers_searcher(info_hash)
-
             await self.get_peers_received(node_id, info_hash, addr)
 
         elif query_type == "announce_peer":
@@ -250,16 +237,10 @@ class DHTCrawler(asyncio.DatagramProtocol):
                 }
             }, addr)
 
-            if await self.is_peers_needed(info_hash):
-                self.add_peers_searcher(info_hash)
-
             await self.announce_peer_received(node_id, info_hash, port, addr)
 
         await asyncio.sleep(self.interval)
         self.find_node(addr)
-
-    async def is_peers_needed(self, info_hash):
-        return False
 
     async def ping_received(self, node_id, addr):
         pass
@@ -271,4 +252,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
         pass
 
     async def announce_peer_received(self, node_id, info_hash, port, addr):
+        pass
+
+    async def peers_values_received(self, info_hash, peers):
         pass
