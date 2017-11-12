@@ -111,7 +111,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
 
             self.routing_table[r_table_index] = rt  # ???
 
-    async def add_peers_searcher(self, info_hash):
+    async def search_peers(self, info_hash):
         self.searchers_seq += 1
 
         t = self.searchers_seq.to_bytes(4, "big")

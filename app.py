@@ -42,13 +42,13 @@ class GrapefruitDHTCrawler(DHTCrawler):
 
     async def get_peers_received(self, node_id, info_hash, addr):
         if await self.is_peers_needed(info_hash):
-            await self.add_peers_searcher(info_hash)
+            await self.search_peers(info_hash)
 
         await self.store_info_hash(info_hash)
 
     async def announce_peer_received(self, node_id, info_hash, port, addr):
         if await self.is_peers_needed(info_hash):
-            await self.add_peers_searcher(info_hash)
+            await self.search_peers(info_hash)
 
         await self.store_info_hash(info_hash)
 
