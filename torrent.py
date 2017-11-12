@@ -8,8 +8,9 @@ from utils import generate_node_id
 
 
 class BitTorrentProtocol(asyncio.Protocol):
-    def __init__(self, info_hash):
+    def __init__(self, info_hash, result_future):
         self.info_hash = info_hash
+        self.result_future = result_future
         self.transport = None
         self.buffer = bytes()
         self.need_handshake = True
@@ -22,6 +23,11 @@ class BitTorrentProtocol(asyncio.Protocol):
         transport.write(generate_node_id())
 
         self.transport = transport
+
+    def connection_lost(self, exc):
+        self.transport.close()
+        if not self.result_future.done():
+            self.result_future.set_result(None)
 
     def send_extended_message(self, message_id, message_data):
         buf = b"\x14" + message_id.to_bytes(1, "big") + bencode(message_data)
@@ -64,7 +70,12 @@ class BitTorrentProtocol(asyncio.Protocol):
 
                 if len(metadata) == r["total_size"]:
                     if sha1(metadata).digest() == self.info_hash:
-                        print("METADATA!", bdecode(metadata))
+                        result = bdecode(metadata)
+                    else:
+                        result = None
+
+                    if not self.result_future.done():
+                        self.result_future.set_result(result)
 
                     self.transport.close()
 
