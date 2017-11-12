@@ -1,6 +1,5 @@
 import asyncio
 from hashlib import sha1
-from time import sleep
 
 from bencode import bencode, bdecode, decode_dict
 
@@ -51,11 +50,8 @@ class BitTorrentProtocol(asyncio.Protocol):
 
                 self.send_extended_message(0, hs_response)
 
-                sleep(0.05)
-
                 for i in range(0, int(1 + metadata_size / (16 * 1024))):
                     self.send_extended_message(ut_metadata_id, {"msg_type": 0, "piece": i})
-                    sleep(0.05)
 
         elif msg_data[0] == 1:
             r, l = decode_dict(msg_data[1:], 0)
