@@ -6,6 +6,7 @@ import motor.motor_asyncio
 from pymongo import ASCENDING
 
 from crawler import DHTCrawler
+from torrent import BitTorrentProtocol
 
 
 class GrapefruitDHTCrawler(DHTCrawler):
@@ -53,7 +54,9 @@ class GrapefruitDHTCrawler(DHTCrawler):
         await self.store_info_hash(info_hash)
 
     async def peers_values_received(self, info_hash, peers):
-        print("peers for", self.hexlify_info_hash(info_hash), peers)
+        for host, port in peers:
+            connection = self.loop.create_connection(lambda: BitTorrentProtocol(info_hash), host, port)
+            self.loop.run_until_complete(connection)
 
 
 if __name__ == '__main__':
