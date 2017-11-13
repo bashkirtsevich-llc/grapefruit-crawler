@@ -64,7 +64,7 @@ class GrapefruitDHTCrawler(DHTCrawler):
         await self.store_info_hash(info_hash)
 
     async def peers_values_received(self, info_hash, peers):
-        asyncio.ensure_future(self.load_metadata(info_hash, peers))
+        asyncio.ensure_future(self.load_metadata(info_hash, peers), loop=self.loop)
 
 
 if __name__ == '__main__':
