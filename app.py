@@ -41,6 +41,16 @@ class GrapefruitDHTCrawler(DHTCrawler):
 
         return result == 0
 
+    async def load_metadata(self, info_hash, peers):
+        for host, port in peers:
+            result_future = self.loop.create_future()
+            await loop.create_connection(lambda: BitTorrentProtocol(info_hash, result_future), host, port)
+            metadata = await result_future
+
+            if metadata:
+                print(metadata)
+                break
+
     async def get_peers_received(self, node_id, info_hash, addr):
         if await self.is_peers_needed(info_hash):
             await self.search_peers(info_hash)
@@ -54,9 +64,7 @@ class GrapefruitDHTCrawler(DHTCrawler):
         await self.store_info_hash(info_hash)
 
     async def peers_values_received(self, info_hash, peers):
-        for host, port in peers:
-            connection = self.loop.create_connection(lambda: BitTorrentProtocol(info_hash), host, port)
-            self.loop.run_until_complete(connection)
+        asyncio.ensure_future(self.load_metadata(info_hash, peers))
 
 
 if __name__ == '__main__':
