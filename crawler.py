@@ -127,16 +127,19 @@ class DHTCrawler(asyncio.DatagramProtocol):
 
         info_hash, old_nodes, old_values, attempts_count = searcher
 
+        # "nodes" and "values" must be instance of "set" type
         new_nodes = old_nodes | nodes
         new_values = old_values | values
 
-        if new_nodes == old_nodes:
+        # If new_closest contains same data as old_closest, we decrease attempt counter
+        new_closest, old_closest = (set(fetch_k_closest_nodes(n, info_hash)) for n in (new_nodes, old_nodes))
+        if new_closest == old_closest:
             attempts_count -= 1
 
         if attempts_count > 0:
             self.searchers[t] = (info_hash, new_nodes, new_values, attempts_count)
 
-            for node in set(fetch_k_closest_nodes(new_nodes, info_hash)):
+            for node in new_closest:
                 self.get_peers((node[1], node[2]), info_hash, t)
         elif new_values:
             await self.peers_values_received(info_hash, new_values)
@@ -165,6 +168,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
         values = set(decode_values(args.get("values", [])))
 
         # TODO: Add delay before start
+        # TODO: May be it should exec as "ensure_future()"?
         await self.update_peers_searcher(msg["t"], nodes, values)
         self.add_nodes_to_routing_table(nodes)
 
