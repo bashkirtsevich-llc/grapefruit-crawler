@@ -18,7 +18,8 @@ class GrapefruitDHTCrawler(DHTCrawler):
 
         self.loop.run_until_complete(self.create_indexes())
 
-    def hexlify_info_hash(self, info_hash):
+    @staticmethod
+    def hexlify_info_hash(info_hash):
         return str(hexlify(info_hash), "utf-8")
 
     async def create_indexes(self):
@@ -42,13 +43,31 @@ class GrapefruitDHTCrawler(DHTCrawler):
         return result == 0
 
     async def load_metadata(self, info_hash, peers):
+        def decode_bytes(obj):
+            if isinstance(obj, list):
+                return [decode_bytes(item) for item in obj]
+            if isinstance(obj, dict):
+                return {key: decode_bytes(value) for key, value in obj.items()}
+            if isinstance(obj, bytes):
+                return str(obj, "utf-8")
+            return obj
+
         for host, port in peers:
             result_future = self.loop.create_future()
             await loop.create_connection(lambda: BitTorrentProtocol(info_hash, result_future), host, port)
-            metadata = await result_future
+            torrent = await result_future
 
-            if metadata:
-                print(metadata)
+            if torrent:
+                metadata = {
+                    "info_hash": self.hexlify_info_hash(info_hash),
+                    "files": decode_bytes(
+                        torrent["files"]
+                        if "files" in torrent else
+                        [{"length": torrent["length"], "path": [torrent["name"]]}]),
+                    "name": decode_bytes(torrent["name"])
+                }
+
+                await self.db.torrent.insert_one(metadata)
                 break
 
     async def get_peers_received(self, node_id, info_hash, addr):
