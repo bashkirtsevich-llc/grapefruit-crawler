@@ -68,7 +68,7 @@ class GrapefruitDHTCrawler(DHTCrawler):
                             [{"length": torrent["length"], "path": [torrent["name"]]}]),
                         "name": decode_bytes(torrent["name"])
                     }
-                    await self.db.torrent.insert_one(metadata)
+                    await self.db.torrents.insert_one(metadata)
                     break
             except:
                 pass
