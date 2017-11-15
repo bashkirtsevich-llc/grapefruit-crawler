@@ -1,9 +1,10 @@
 import asyncio
 import os
 from binascii import hexlify
+from datetime import datetime
 
 import motor.motor_asyncio
-from pymongo import ASCENDING
+from pymongo import ASCENDING, DESCENDING
 
 from crawler import DHTCrawler
 from torrent import BitTorrentProtocol
@@ -33,13 +34,21 @@ class GrapefruitDHTCrawler(DHTCrawler):
         self.loop.run_until_complete(self.create_indexes())
 
     async def create_indexes(self):
-        index_info = {"name": "info_hash", "keys": [("info_hash", ASCENDING)], "unique": True}
+        indexes = [
+            ("hashes", [
+                {"name": "info_hash", "keys": [("info_hash", ASCENDING)], "unique": True}]),
+            ("torrents", [
+                {"name": "info_hash", "keys": [("info_hash", ASCENDING)], "unique": True},
+                {"name": "timestamp", "keys": [("timestamp", DESCENDING)]}])
+        ]
 
-        hashes = self.db.hashes
-        hashes_indexes = await hashes.index_information()
+        for coll_name, indexes_info in indexes:
+            coll = self.db[coll_name]
+            coll_indexes = await coll.index_information()
 
-        if index_info["name"] not in hashes_indexes:
-            await hashes.create_index(**index_info)
+            for info in indexes_info:
+                if info["name"] not in coll_indexes:
+                    await coll.create_index(**info)
 
     async def store_info_hash(self, info_hash):
         info_hash_hex = hexlify_info_hash(info_hash)
@@ -66,7 +75,8 @@ class GrapefruitDHTCrawler(DHTCrawler):
                             torrent["files"]
                             if "files" in torrent else
                             [{"length": torrent["length"], "path": [torrent["name"]]}]),
-                        "name": decode_bytes(torrent["name"])
+                        "name": decode_bytes(torrent["name"]),
+                        "timestamp": datetime.now()
                     }
                     await self.db.torrents.insert_one(metadata)
                     break
