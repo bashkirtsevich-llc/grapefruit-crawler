@@ -9,6 +9,20 @@ from crawler import DHTCrawler
 from torrent import BitTorrentProtocol
 
 
+def hexlify_info_hash(info_hash):
+    return str(hexlify(info_hash), "utf-8")
+
+
+def decode_bytes(obj):
+    if isinstance(obj, list):
+        return [decode_bytes(item) for item in obj]
+    if isinstance(obj, dict):
+        return {key: decode_bytes(value) for key, value in obj.items()}
+    if isinstance(obj, bytes):
+        return str(obj, "utf-8")
+    return obj
+
+
 class GrapefruitDHTCrawler(DHTCrawler):
     def __init__(self, db_url, db_name, **kwargs):
         client = motor.motor_asyncio.AsyncIOMotorClient(db_url)
@@ -17,10 +31,6 @@ class GrapefruitDHTCrawler(DHTCrawler):
         super().__init__(**kwargs)
 
         self.loop.run_until_complete(self.create_indexes())
-
-    @staticmethod
-    def hexlify_info_hash(info_hash):
-        return str(hexlify(info_hash), "utf-8")
 
     async def create_indexes(self):
         index_info = {"name": "info_hash", "keys": [("info_hash", ASCENDING)], "unique": True}
@@ -32,26 +42,17 @@ class GrapefruitDHTCrawler(DHTCrawler):
             await hashes.create_index(**index_info)
 
     async def store_info_hash(self, info_hash):
-        info_hash_hex = self.hexlify_info_hash(info_hash)
+        info_hash_hex = hexlify_info_hash(info_hash)
         if await self.db.hashes.count(filter={"info_hash": info_hash_hex}) == 0:
             await self.db.hashes.insert_one({"info_hash": info_hash_hex})
 
     async def is_peers_needed(self, info_hash):
-        info_hash_hex = self.hexlify_info_hash(info_hash)
+        info_hash_hex = hexlify_info_hash(info_hash)
         result = await self.db.hashes.count(filter={"info_hash": info_hash_hex})
 
         return result == 0
 
     async def load_metadata(self, info_hash, peers):
-        def decode_bytes(obj):
-            if isinstance(obj, list):
-                return [decode_bytes(item) for item in obj]
-            if isinstance(obj, dict):
-                return {key: decode_bytes(value) for key, value in obj.items()}
-            if isinstance(obj, bytes):
-                return str(obj, "utf-8")
-            return obj
-
         for host, port in peers:
             try:
                 result_future = self.loop.create_future()
@@ -60,7 +61,7 @@ class GrapefruitDHTCrawler(DHTCrawler):
 
                 if torrent:
                     metadata = {
-                        "info_hash": self.hexlify_info_hash(info_hash),
+                        "info_hash": hexlify_info_hash(info_hash),
                         "files": decode_bytes(
                             torrent["files"]
                             if "files" in torrent else
