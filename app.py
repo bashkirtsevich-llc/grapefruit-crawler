@@ -26,10 +26,10 @@ def decode_bytes(obj):
 
 class GrapefruitDHTCrawler(DHTCrawler):
     def __init__(self, db_url, db_name, **kwargs):
+        super().__init__(**kwargs)
+
         client = motor.motor_asyncio.AsyncIOMotorClient(db_url)
         self.db = client[db_name]
-
-        super().__init__(**kwargs)
 
         self.loop.run_until_complete(self.create_indexes())
 
