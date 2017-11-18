@@ -67,16 +67,16 @@ class GrapefruitDHTCrawler(DHTCrawler):
 
         self.torrent_in_progress.remove(info_hash)
 
-    async def try_enqueue_info_hash(self, info_hash):
+    async def enqueue_torrent(self, info_hash):
         if info_hash not in self.torrent_in_progress and not await self.is_torrent_exists(info_hash):
             self.torrent_in_progress.add(info_hash)
             await self.search_peers(info_hash)
 
     async def get_peers_received(self, node_id, info_hash, addr):
-        await self.try_enqueue_info_hash(info_hash)
+        await self.enqueue_torrent(info_hash)
 
     async def announce_peer_received(self, node_id, info_hash, port, addr):
-        await self.try_enqueue_info_hash(info_hash)
+        await self.enqueue_torrent(info_hash)
 
     async def peers_values_received(self, info_hash, peers):
         asyncio.ensure_future(self.load_torrent(info_hash, peers), loop=self.loop)
