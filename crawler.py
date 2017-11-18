@@ -4,7 +4,7 @@ from random import sample
 from bencode import bencode, bdecode
 
 from utils import (generate_node_id, generate_id, get_routing_table_index, xor, decode_nodes, encode_nodes,
-                   get_rand_bool, fetch_k_closest_nodes)
+                   get_rand_bool, fetch_k_closest_nodes, decode_values)
 
 
 class DHTCrawler(asyncio.DatagramProtocol):
@@ -16,29 +16,11 @@ class DHTCrawler(asyncio.DatagramProtocol):
 
         self.routing_table = [set() for _ in range(160)]
 
+        self.searchers = {}
+        self.searchers_seq = 0
+
         self.transport = None
         self.__running = False
-
-    def datagram_received(self, data, addr):
-        try:
-            msg = bdecode(data)
-        except:
-            return
-
-        try:
-            self.handle_message(msg, addr)
-        except:
-            response = {
-                "y": "e",
-                "e": [202, "Server Error"]
-            }
-
-            if "t" in msg:
-                response["t"] = msg["t"]
-
-            self.send_message(response, addr)
-
-            raise
 
     def connection_made(self, transport):
         self.transport = transport
@@ -46,6 +28,13 @@ class DHTCrawler(asyncio.DatagramProtocol):
     def connection_lost(self, exc):
         self.stop()
         self.transport.close()
+
+    def datagram_received(self, data, addr):
+        try:
+            msg = bdecode(data)
+            asyncio.ensure_future(self.handle_message(msg, addr), loop=self.loop)
+        except:
+            pass
 
     def run(self, host="0.0.0.0", port=6881):
         coro = self.loop.create_datagram_endpoint(lambda: self, local_addr=(host, port))
@@ -77,22 +66,34 @@ class DHTCrawler(asyncio.DatagramProtocol):
             }
         }, addr)
 
+    def get_peers(self, addr, info_hash, t=None):
+        self.send_message({
+            "t": t or generate_id(),
+            "y": "q",
+            "q": "get_peers",
+            "a": {
+                "id": self.node_id,
+                "info_hash": info_hash
+            }
+        }, addr)
+
     def get_closest_nodes(self, target_id, k_value=8):
-        closest = set()
+        closest_l = set()
+        closest_r = set()
 
         r_table_idx = get_routing_table_index(xor(self.node_id, target_id))
 
-        index = r_table_idx
-        while index >= 0 and len(closest) < k_value:
-            closest |= set(fetch_k_closest_nodes(self.routing_table[index], target_id, k_value))
-            index -= 1
+        idx = r_table_idx
+        while idx >= 0 and len(closest_l) < k_value:
+            closest_l |= set(fetch_k_closest_nodes(self.routing_table[idx], target_id, k_value))
+            idx -= 1
 
-        index = r_table_idx + 1
-        while index < 160 and len(closest) < k_value:
-            closest |= set(fetch_k_closest_nodes(self.routing_table[index], target_id, k_value))
-            index += 1
+        idx = r_table_idx + 1
+        while idx < 160 and len(closest_r) < k_value:
+            closest_r |= set(fetch_k_closest_nodes(self.routing_table[idx], target_id, k_value))
+            idx += 1
 
-        return fetch_k_closest_nodes(closest, target_id, k_value)
+        return fetch_k_closest_nodes(closest_l | closest_r, target_id, k_value)
 
     def add_nodes_to_routing_table(self, nodes):
         new_k = 1500
@@ -103,29 +104,73 @@ class DHTCrawler(asyncio.DatagramProtocol):
 
             if len(rt) < new_k:
                 rt.add(node)
-            elif get_rand_bool():
+            elif get_rand_bool() and node not in rt:
                 rt.remove(sample(rt, 1)[0])
             else:
                 self.find_node((node[1], node[2]))
 
-    def handle_message(self, msg, addr):
-        if "y" in msg:
-            msg_type = str(msg["y"], "utf-8")
+            self.routing_table[r_table_index] = rt  # ???
+
+    async def search_peers(self, info_hash):
+        self.searchers_seq += 1
+
+        t = self.searchers_seq.to_bytes(4, "big")
+        self.searchers[t] = (info_hash, set(), set(), 8)  # (info_hash, nodes, values, attempts_count)
+
+        for node in self.get_closest_nodes(info_hash):
+            self.get_peers((node[1], node[2]), info_hash, t)
+
+    async def update_peers_searcher(self, t, nodes, values):
+        searcher = self.searchers.pop(t, None)
+        if not searcher:
+            return
+
+        info_hash, old_nodes, old_values, attempts_count = searcher
+
+        # "nodes" and "values" must be instance of "set" type
+        new_nodes = old_nodes | nodes
+        new_values = old_values | values
+
+        # If new_closest contains same data as old_closest, we decrease attempt counter
+        new_closest, old_closest = (set(fetch_k_closest_nodes(n, info_hash)) for n in (new_nodes, old_nodes))
+        if new_closest == old_closest:
+            attempts_count -= 1
+
+        if attempts_count > 0:
+            self.searchers[t] = (info_hash, new_nodes, new_values, attempts_count)
+
+            for node in new_closest:
+                self.get_peers((node[1], node[2]), info_hash, t)
+        elif new_values:
+            await self.peers_values_received(info_hash, new_values)
+
+    async def handle_message(self, msg, addr):
+        try:
+            msg_type = str(msg.get("y", b""), "utf-8")
 
             if msg_type == "r":
-                return self.handle_response(msg)
+                await self.handle_response(msg)
+            elif msg_type == "q":
+                await self.handle_query(msg, addr)
+        except:
+            self.send_message({
+                "y": "e",
+                "e": [202, "Server Error"],
+                "t": msg.get("t", "")
+            }, addr)
 
-            if msg_type == "q":
-                return asyncio.ensure_future(
-                    self.handle_query(msg, addr), loop=self.loop
-                )
+            raise
 
-    def handle_response(self, msg):
+    async def handle_response(self, msg):
         args = msg["r"]
 
-        if "nodes" in args:
-            nodes = decode_nodes(args["nodes"])
-            self.add_nodes_to_routing_table(nodes)
+        nodes = set(decode_nodes(args.get("nodes", b"")))
+        values = set(decode_values(args.get("values", [])))
+
+        # TODO: Add delay before start
+        # TODO: May be it should exec as "ensure_future()"?
+        await self.update_peers_searcher(msg["t"], nodes, values)
+        self.add_nodes_to_routing_table(nodes)
 
     async def auto_find_nodes(self):
         self.__running = True
@@ -211,4 +256,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
         pass
 
     async def announce_peer_received(self, node_id, info_hash, port, addr):
+        pass
+
+    async def peers_values_received(self, info_hash, peers):
         pass

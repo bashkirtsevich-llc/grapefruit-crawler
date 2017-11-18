@@ -1,42 +1,85 @@
 import asyncio
 import os
-from binascii import hexlify
+from datetime import datetime
 
 import motor.motor_asyncio
 from pymongo import ASCENDING
 
 from crawler import DHTCrawler
+from torrent import BitTorrentProtocol
+from utils import hexlify, decode_bytes
 
 
 class GrapefruitDHTCrawler(DHTCrawler):
     def __init__(self, db_url, db_name, **kwargs):
+        super().__init__(**kwargs)
+
         client = motor.motor_asyncio.AsyncIOMotorClient(db_url)
         self.db = client[db_name]
 
-        super().__init__(**kwargs)
+        self.loop.run_until_complete(self.create_index())
 
-        self.loop.run_until_complete(self.create_indexes())
+        self.torrent_in_progress = set()  # For prevent multiple search same torrents
 
-    async def create_indexes(self):
-        index_info = {"name": "info_hash", "keys": [("info_hash", ASCENDING)], "unique": True}
+    async def create_index(self):
+        index = {
+            "name": "info_hash",
+            "keys": [("info_hash", ASCENDING)],
+            "unique": True
+        }
 
-        hashes = self.db.hashes
-        hashes_indexes = await hashes.index_information()
+        coll = self.db.torrents
+        if index["name"] not in await coll.index_information():
+            await coll.create_index(**index)
 
-        if index_info["name"] not in hashes_indexes:
-            await hashes.create_index(**index_info)
+    async def is_torrent_exists(self, info_hash):
+        result = await self.db.torrents.count(filter={"info_hash": hexlify(info_hash)}) > 0
+        return result
 
-    async def store_info_hash(self, info_hash):
-        info_hash_hex = str(hexlify(info_hash), "utf-8")
+    async def load_torrent(self, info_hash, peers):
+        for host, port in peers:
+            try:
+                result_future = self.loop.create_future()
+                await self.loop.create_connection(
+                    lambda: BitTorrentProtocol(info_hash, result_future), host, port
+                )
+                torrent = await result_future
 
-        if await self.db.hashes.count(filter={"info_hash": info_hash_hex}) == 0:
-            await self.db.hashes.insert_one({"info_hash": info_hash_hex})
+                if not torrent:
+                    continue
+
+                if "files" in torrent:
+                    files = torrent["files"]
+                else:
+                    files = [{"length": torrent["length"], "path": [torrent["name"]]}]
+
+                metadata = {
+                    "info_hash": hexlify(info_hash),
+                    "files": decode_bytes(files),
+                    "name": decode_bytes(torrent["name"]),
+                    "timestamp": datetime.now()
+                }
+                await self.db.torrents.insert_one(metadata)
+
+                break
+            except:
+                pass
+
+        self.torrent_in_progress.remove(info_hash)
+
+    async def try_enqueue_info_hash(self, info_hash):
+        if info_hash not in self.torrent_in_progress and not await self.is_torrent_exists(info_hash):
+            self.torrent_in_progress.add(info_hash)
+            await self.search_peers(info_hash)
 
     async def get_peers_received(self, node_id, info_hash, addr):
-        await self.store_info_hash(info_hash)
+        await self.try_enqueue_info_hash(info_hash)
 
     async def announce_peer_received(self, node_id, info_hash, port, addr):
-        await self.store_info_hash(info_hash)
+        await self.try_enqueue_info_hash(info_hash)
+
+    async def peers_values_received(self, info_hash, peers):
+        asyncio.ensure_future(self.load_torrent(info_hash, peers), loop=self.loop)
 
 
 if __name__ == '__main__':

@@ -3,6 +3,7 @@ import os
 from heapq import nsmallest
 from random import getrandbits
 from socket import inet_ntoa, inet_aton
+import binascii
 
 
 def generate_id():
@@ -32,6 +33,17 @@ def get_routing_table_index(distance):
         return 0
 
 
+def decode_values(values):
+    for value in values:
+        if len(value) % 6 != 0:
+            return
+
+        ip = inet_ntoa(value[0: 4])  # from network order to IP address
+        port = int.from_bytes(value[4: 6], "big")
+
+        yield ip, port
+
+
 def decode_nodes(nodes):
     if len(nodes) % 26 != 0:
         return
@@ -55,3 +67,17 @@ def encode_nodes(nodes):
         result = result + node_id + ip_message + port_message
 
     return result
+
+
+def hexlify(info_hash):
+    return str(binascii.hexlify(info_hash), "utf-8")
+
+
+def decode_bytes(obj):
+    if isinstance(obj, list):
+        return [decode_bytes(item) for item in obj]
+    if isinstance(obj, dict):
+        return {key: decode_bytes(value) for key, value in obj.items()}
+    if isinstance(obj, bytes):
+        return str(obj, "utf-8")
+    return obj
