@@ -3,6 +3,7 @@ import os
 from heapq import nsmallest
 from random import getrandbits
 from socket import inet_ntoa, inet_aton
+import binascii
 
 
 def generate_id():
@@ -66,3 +67,17 @@ def encode_nodes(nodes):
         result = result + node_id + ip_message + port_message
 
     return result
+
+
+def hexlify(info_hash):
+    return str(binascii.hexlify(info_hash), "utf-8")
+
+
+def decode_bytes(obj):
+    if isinstance(obj, list):
+        return [decode_bytes(item) for item in obj]
+    if isinstance(obj, dict):
+        return {key: decode_bytes(value) for key, value in obj.items()}
+    if isinstance(obj, bytes):
+        return str(obj, "utf-8")
+    return obj
