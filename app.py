@@ -104,8 +104,6 @@ if __name__ == '__main__':
     db_url = os.environ["MONGODB_URL"]
     db_name = os.getenv("MONGODB_BASE_NAME", "grapefruit")
 
-    logging.basicConfig(level=logging.INFO)
-
     initial_nodes = [
         ("router.bittorrent.com", 6881),
         ("dht.transmissionbt.com", 6881),
@@ -115,5 +113,7 @@ if __name__ == '__main__':
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
 
+    logging.basicConfig(level=logging.INFO)
+    
     svr = GrapefruitDHTCrawler(db_url, db_name, loop=loop, bootstrap_nodes=initial_nodes, interval=0.1)
     svr.run()
