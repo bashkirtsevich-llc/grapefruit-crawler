@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 from datetime import datetime
 
@@ -37,6 +38,12 @@ class GrapefruitDHTCrawler(DHTCrawler):
         return result
 
     async def load_torrent(self, info_hash, peers):
+        logging.debug(
+            "Start loading torrent\r\n"
+            "\tinfo_hash: {}\r\n"
+            "\tpeers: {}".format(hexlify(info_hash), peers)
+        )
+
         for host, port in peers:
             try:
                 result_future = self.loop.create_future()
@@ -59,6 +66,13 @@ class GrapefruitDHTCrawler(DHTCrawler):
                     "name": decode_bytes(torrent["name"]),
                     "timestamp": datetime.now()
                 }
+
+                logging.debug(
+                    "Got torrent metadata\r\n"
+                    "\tinfo_hash: {}\r\n"
+                    "\tmetadata: {}".format(hexlify(info_hash), metadata)
+                )
+
                 await self.db.torrents.insert_one(metadata)
 
                 break
@@ -69,6 +83,10 @@ class GrapefruitDHTCrawler(DHTCrawler):
 
     async def enqueue_torrent(self, info_hash):
         if info_hash not in self.torrent_in_progress and not await self.is_torrent_exists(info_hash):
+            logging.debug(
+                "Enqueue search peers for torrent\r\n"
+                "\tinfo_hash: {}".format(hexlify(info_hash)))
+
             self.torrent_in_progress.add(info_hash)
             await self.search_peers(info_hash)
 
@@ -85,6 +103,8 @@ class GrapefruitDHTCrawler(DHTCrawler):
 if __name__ == '__main__':
     db_url = os.environ["MONGODB_URL"]
     db_name = os.getenv("MONGODB_BASE_NAME", "grapefruit")
+
+    logging.basicConfig(level=logging.INFO)
 
     initial_nodes = [
         ("router.bittorrent.com", 6881),
