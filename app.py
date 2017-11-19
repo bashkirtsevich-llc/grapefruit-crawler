@@ -114,6 +114,6 @@ if __name__ == '__main__':
     asyncio.set_event_loop(loop)
 
     logging.basicConfig(level=logging.INFO)
-    
+
     svr = GrapefruitDHTCrawler(db_url, db_name, loop=loop, bootstrap_nodes=initial_nodes, interval=0.1)
     svr.run()
