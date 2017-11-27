@@ -1,5 +1,4 @@
 import asyncio
-import time
 from random import sample
 
 from bencode import bencode, bdecode
@@ -55,7 +54,6 @@ class DHTCrawler(asyncio.DatagramProtocol):
 
     def send_message(self, data, addr):
         self.transport.sendto(bencode(data), addr)
-        time.sleep(0.0005)
 
     def find_node(self, addr, target=None):
         self.send_message({
