@@ -1,4 +1,5 @@
 import asyncio
+import time
 from random import sample
 
 from bencode import bencode, bdecode
@@ -54,7 +55,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
 
     def send_message(self, data, addr):
         self.transport.sendto(bencode(data), addr)
-        self.loop.run_until_complete(asyncio.sleep(self.interval))
+        time.sleep(0.0005)
 
     def find_node(self, addr, target=None):
         self.send_message({
@@ -178,6 +179,8 @@ class DHTCrawler(asyncio.DatagramProtocol):
         self.__running = True
 
         while self.__running:
+            await asyncio.sleep(self.interval)
+
             target_id = generate_node_id()
 
             for node_id, node_ip, node_port in self.get_closest_nodes(target_id):
@@ -243,6 +246,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
 
             await self.announce_peer_received(node_id, info_hash, port, addr)
 
+        await asyncio.sleep(self.interval)
         self.find_node(addr)
 
     async def ping_received(self, node_id, addr):
