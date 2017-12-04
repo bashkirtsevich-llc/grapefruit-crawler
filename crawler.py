@@ -173,6 +173,8 @@ class DHTCrawler(asyncio.DatagramProtocol):
         else:
             self.add_nodes_to_routing_table(nodes)
 
+        await asyncio.sleep(self.interval)
+
     async def auto_find_nodes(self):
         self.__running = True
 
