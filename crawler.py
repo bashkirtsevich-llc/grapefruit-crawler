@@ -141,7 +141,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
 
             for node in new_closest:
                 self.get_peers((node[1], node[2]), info_hash, t)
-        elif new_values:
+        else:  # Empty if not found
             await self.peers_values_received(info_hash, new_values)
 
     async def handle_message(self, msg, addr):
