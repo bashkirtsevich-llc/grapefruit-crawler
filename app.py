@@ -54,7 +54,7 @@ class GrapefruitDHTCrawler(DHTCrawler):
                             lambda: BitTorrentProtocol(info_hash, result_future), host, port
                         ), timeout=1, loop=self.loop)
 
-                    torrent = await result_future
+                    torrent = await asyncio.wait_for(result_future, timeout=10, loop=self.loop)
 
                     if not torrent:
                         continue
