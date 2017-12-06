@@ -44,12 +44,16 @@ class GrapefruitDHTCrawler(DHTCrawler):
             "\tpeers: {}".format(hexlify(info_hash), peers)
         )
 
+        loop = self.loop
         for host, port in peers:
             try:
-                result_future = self.loop.create_future()
-                await self.loop.create_connection(
-                    lambda: BitTorrentProtocol(info_hash, result_future), host, port
-                )
+                result_future = loop.create_future()
+
+                await asyncio.wait_for(
+                    loop.create_connection(
+                        lambda: BitTorrentProtocol(info_hash, result_future), host, port
+                    ), timeout=1, loop=loop)
+
                 torrent = await result_future
 
                 if not torrent:
