@@ -61,7 +61,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
             "y": "q",
             "q": "find_node",
             "a": {
-                "id": self.node_id,
+                "id": generate_node_id(),
                 "target": target or generate_node_id()
             }
         }, addr)
@@ -72,7 +72,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
             "y": "q",
             "q": "get_peers",
             "a": {
-                "id": self.node_id,
+                "id": generate_node_id(),
                 "info_hash": info_hash
             }
         }, addr)
@@ -196,7 +196,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
                 "t": msg["t"],
                 "y": "r",
                 "r": {
-                    "id": self.node_id
+                    "id": generate_node_id()
                 }
             }, addr)
 
@@ -209,7 +209,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
                 "t": msg["t"],
                 "y": "r",
                 "r": {
-                    "id": self.node_id,
+                    "id": generate_node_id(),
                     "nodes": encode_nodes(self.get_closest_nodes(target_node_id))
                 }
             }, addr)
@@ -224,7 +224,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
                 "t": msg["t"],
                 "y": "r",
                 "r": {
-                    "id": self.node_id,
+                    "id": generate_node_id(),
                     "nodes": encode_nodes(self.get_closest_nodes(info_hash)),
                     "token": token
                 }
@@ -240,7 +240,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
                 "t": msg["t"],
                 "y": "r",
                 "r": {
-                    "id": self.node_id
+                    "id": generate_node_id()
                 }
             }, addr)
 
