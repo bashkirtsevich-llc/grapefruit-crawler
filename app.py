@@ -44,52 +44,51 @@ class GrapefruitDHTCrawler(DHTCrawler):
             "\tpeers: {}".format(hexlify(info_hash), peers)
         )
 
-        try:
-            for host, port in peers:
+        for host, port in peers:
+            try:
+                result_future = self.loop.create_future()
+
+                transport, protocol = await asyncio.wait_for(
+                    self.loop.create_connection(
+                        lambda: BitTorrentProtocol(info_hash, result_future), host, port
+                    ), timeout=1, loop=self.loop)
+
                 try:
-                    result_future = self.loop.create_future()
+                    torrent = await asyncio.wait_for(result_future, timeout=10, loop=self.loop)
+                except asyncio.TimeoutError:
+                    transport.close()  # Force close connection
+                    raise
 
-                    transport, protocol = await asyncio.wait_for(
-                        self.loop.create_connection(
-                            lambda: BitTorrentProtocol(info_hash, result_future), host, port
-                        ), timeout=1, loop=self.loop)
+                if not torrent:
+                    continue
 
-                    try:
-                        torrent = await asyncio.wait_for(result_future, timeout=10, loop=self.loop)
-                    except asyncio.TimeoutError:
-                        transport.close()  # Force close connection
-                        raise
+                if "files" in torrent:
+                    files = torrent["files"]
+                else:
+                    files = [{"length": torrent["length"], "path": [torrent["name"]]}]
 
-                    if not torrent:
-                        continue
+                metadata = {
+                    "info_hash": hexlify(info_hash),
+                    "files": decode_bytes(files),
+                    "name": decode_bytes(torrent["name"]),
+                    "timestamp": datetime.now()
+                }
 
-                    if "files" in torrent:
-                        files = torrent["files"]
-                    else:
-                        files = [{"length": torrent["length"], "path": [torrent["name"]]}]
+                logging.debug(
+                    "Got torrent metadata\r\n"
+                    "\tinfo_hash: {}\r\n"
+                    "\tmetadata: {}".format(hexlify(info_hash), metadata)
+                )
 
-                    metadata = {
-                        "info_hash": hexlify(info_hash),
-                        "files": decode_bytes(files),
-                        "name": decode_bytes(torrent["name"]),
-                        "timestamp": datetime.now()
-                    }
+                if not await self.is_torrent_exists(info_hash):
+                    await self.db.torrents.insert_one(metadata)
 
-                    logging.debug(
-                        "Got torrent metadata\r\n"
-                        "\tinfo_hash: {}\r\n"
-                        "\tmetadata: {}".format(hexlify(info_hash), metadata)
-                    )
+                break
+            except:
+                pass
 
-                    if not await self.is_torrent_exists(info_hash):
-                        await self.db.torrents.insert_one(metadata)
-
-                    break
-                except:
-                    pass
-        finally:
-            if info_hash in self.torrent_in_progress:
-                self.torrent_in_progress.remove(info_hash)
+        if info_hash in self.torrent_in_progress:
+            self.torrent_in_progress.remove(info_hash)
 
     async def enqueue_torrent(self, info_hash):
         if info_hash not in self.torrent_in_progress and not await self.is_torrent_exists(info_hash):
