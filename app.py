@@ -80,8 +80,10 @@ class GrapefruitDHTCrawler(DHTCrawler):
                     "\tmetadata: {}".format(hexlify(info_hash), metadata)
                 )
 
-                if not await self.is_torrent_exists(info_hash):
+                try:
                     await self.db.torrents.insert_one(metadata)
+                except:
+                    pass
 
                 break
             except:
