@@ -105,7 +105,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
             if len(rt) < new_k:
                 rt.add(node)
             elif get_rand_bool() and node not in rt:
-                rt.remove(sample(rt, 1).id)
+                rt.remove(sample(rt, 1)[0])
             else:
                 self.find_node((node.host, node.port))
 
