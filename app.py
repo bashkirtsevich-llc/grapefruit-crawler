@@ -93,7 +93,9 @@ class GrapefruitDHTCrawler(DHTCrawler):
             self.torrent_in_progress.remove(info_hash)
 
     async def enqueue_torrent(self, info_hash):
-        if info_hash not in self.torrent_in_progress and not await self.is_torrent_exists(info_hash):
+        has_torrent = await self.is_torrent_exists(info_hash)
+
+        if info_hash not in self.torrent_in_progress and not has_torrent:
             logging.debug(
                 "Enqueue search peers for torrent\r\n"
                 "\tinfo_hash: {}".format(hexlify(info_hash)))
