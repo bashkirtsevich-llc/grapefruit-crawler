@@ -99,15 +99,15 @@ class DHTCrawler(asyncio.DatagramProtocol):
         new_k = 1500
 
         for node in nodes:
-            r_table_index = get_routing_table_index(xor(node[0], self.node_id))
+            r_table_index = get_routing_table_index(xor(node.id, self.node_id))
             rt = self.routing_table[r_table_index]
 
             if len(rt) < new_k:
                 rt.add(node)
             elif get_rand_bool() and node not in rt:
-                rt.remove(sample(rt, 1)[0])
+                rt.remove(sample(rt, 1).id)
             else:
-                self.find_node((node[1], node[2]))
+                self.find_node((node.host, node.port))
 
             self.routing_table[r_table_index] = rt  # ???
 
@@ -121,7 +121,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
         self.searchers[t] = (info_hash, set(), set(), 16)  # (info_hash, nodes, values, attempts_count)
 
         for node in self.get_closest_nodes(info_hash, 32):
-            self.get_peers((node[1], node[2]), info_hash, t)
+            self.get_peers((node.host, node.port), info_hash, t)
 
     async def update_peers_searcher(self, t, nodes, values):
         searcher = self.searchers.pop(t, None)
@@ -143,7 +143,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
             self.searchers[t] = (info_hash, new_nodes, new_values, attempts_count)
 
             for node in new_closest:
-                self.get_peers((node[1], node[2]), info_hash, t)
+                self.get_peers((node.host, node.port), info_hash, t)
         else:  # Empty if not found
             await self.peers_values_received(info_hash, new_values)
 
