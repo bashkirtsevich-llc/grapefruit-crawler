@@ -120,7 +120,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
         t = self.searchers_seq.to_bytes(4, "big")
         self.searchers[t] = (info_hash, set(), set(), 16)  # (info_hash, nodes, values, attempts_count)
 
-        for node in self.get_closest_nodes(info_hash):
+        for node in self.get_closest_nodes(info_hash, 32):
             self.get_peers((node[1], node[2]), info_hash, t)
 
     async def update_peers_searcher(self, t, nodes, values):
@@ -135,7 +135,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
         new_values = old_values | values
 
         # If new_closest contains same data as old_closest, we decrease attempt counter
-        new_closest, old_closest = (set(fetch_k_closest_nodes(n, info_hash)) for n in (new_nodes, old_nodes))
+        new_closest, old_closest = (set(fetch_k_closest_nodes(n, info_hash, 32)) for n in (new_nodes, old_nodes))
         if new_closest == old_closest:
             attempts_count -= 1
 
