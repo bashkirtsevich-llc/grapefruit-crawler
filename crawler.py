@@ -1,10 +1,14 @@
 import asyncio
+from collections import namedtuple
+from datetime import datetime
 from random import sample
 
 from bencode import bencode, bdecode
 
 from utils import (generate_node_id, generate_id, get_routing_table_index, xor, decode_nodes, encode_nodes,
                    get_rand_bool, fetch_k_closest_nodes, decode_values)
+
+Searcher = namedtuple("searcher", ["info_hash", "nodes", "values", "attempts_count", "timestamp"])
 
 
 class DHTCrawler(asyncio.DatagramProtocol):
@@ -118,7 +122,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
             self.searchers_seq += 1
 
         t = self.searchers_seq.to_bytes(4, "big")
-        self.searchers[t] = (info_hash, set(), set(), 16)  # (info_hash, nodes, values, attempts_count)
+        self.searchers[t] = Searcher(info_hash, set(), set(), 16, datetime.now())
 
         for node in self.get_closest_nodes(info_hash, 32):
             self.get_peers((node.host, node.port), info_hash, t)
@@ -128,7 +132,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
         if not searcher:
             return
 
-        info_hash, old_nodes, old_values, attempts_count = searcher
+        info_hash, old_nodes, old_values, attempts_count, timestamp = searcher
 
         # "nodes" and "values" must be instance of "set" type
         new_nodes = old_nodes | nodes
@@ -140,11 +144,11 @@ class DHTCrawler(asyncio.DatagramProtocol):
             attempts_count -= 1
 
         if attempts_count > 0:
-            self.searchers[t] = (info_hash, new_nodes, new_values, attempts_count)
+            self.searchers[t] = Searcher(info_hash, new_nodes, new_values, attempts_count, timestamp)
 
             for node in new_closest:
                 self.get_peers((node.host, node.port), info_hash, t)
-        else:  # Empty if not found
+        else:
             await self.peers_values_received(info_hash, new_values)
 
     async def handle_message(self, msg, addr):
@@ -188,6 +192,11 @@ class DHTCrawler(asyncio.DatagramProtocol):
 
             for node_id, node_ip, node_port in self.get_closest_nodes(target_id):
                 self.find_node((node_ip, node_port), target_id)
+
+            # Drop old searchers
+            now = datetime.now()
+            for searcher in filter(lambda item: (now - item.timestamp).seconds >= 60, self.searchers.values()):
+                await self.peers_values_received(searcher.info_hash, searcher.values)
 
     async def handle_query(self, msg, addr):
         args = msg["a"]
