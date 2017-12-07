@@ -112,7 +112,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
             self.routing_table[r_table_index] = rt  # ???
 
     async def search_peers(self, info_hash):
-        if self.searchers_seq > 2 ** 32 - 1:
+        if self.searchers_seq >= 2 ** 32 - 1:
             self.searchers_seq = 0
         else:
             self.searchers_seq += 1
