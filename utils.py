@@ -1,9 +1,13 @@
+import binascii
 import math
 import os
+from collections import namedtuple
 from heapq import nsmallest
 from random import getrandbits
 from socket import inet_ntoa, inet_aton
-import binascii
+
+Peer = namedtuple("peer", ["host", "port"])
+Node = namedtuple("node", ["id", "host", "port"])
 
 
 def generate_id():
@@ -41,7 +45,7 @@ def decode_values(values):
         ip = inet_ntoa(value[0: 4])  # from network order to IP address
         port = int.from_bytes(value[4: 6], "big")
 
-        yield ip, port
+        yield Peer(ip, port)
 
 
 def decode_nodes(nodes):
@@ -54,7 +58,7 @@ def decode_nodes(nodes):
         ip = inet_ntoa(nodes[i + 20: i + 24])  # from network order to IP address
         port = int.from_bytes(nodes[i + 24: i + 26], "big")
 
-        yield node_id, ip, port
+        yield Node(node_id, ip, port)
 
 
 def encode_nodes(nodes):
