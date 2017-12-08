@@ -206,12 +206,14 @@ class DHTCrawler(asyncio.DatagramProtocol):
         node_id = args["id"]
         query_type = str(msg["q"], "utf-8")
 
+        response_id = self.node_id
+
         if query_type == "ping":
             self.send_message({
                 "t": msg["t"],
                 "y": "r",
                 "r": {
-                    "id": generate_node_id()
+                    "id": response_id
                 }
             }, addr)
 
@@ -224,7 +226,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
                 "t": msg["t"],
                 "y": "r",
                 "r": {
-                    "id": generate_node_id(),
+                    "id": response_id,
                     "nodes": encode_nodes(self.get_closest_nodes(target_node_id))
                 }
             }, addr)
@@ -239,7 +241,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
                 "t": msg["t"],
                 "y": "r",
                 "r": {
-                    "id": generate_node_id(),
+                    "id": response_id,
                     "nodes": encode_nodes(self.get_closest_nodes(info_hash)),
                     "token": token
                 }
@@ -255,7 +257,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
                 "t": msg["t"],
                 "y": "r",
                 "r": {
-                    "id": generate_node_id()
+                    "id": response_id
                 }
             }, addr)
 
