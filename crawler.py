@@ -196,9 +196,9 @@ class DHTCrawler(asyncio.DatagramProtocol):
             now = datetime.now()
             for searcher in filter(lambda item: (now - item.timestamp).seconds >= 60, self.searchers.values()):
                 await self.peers_values_received(searcher.info_hash, searcher.values)
-            
+
             self.searchers = {
-                t: item for t, item in self.searchers.values() if (now - item.timestamp).seconds < 60
+                t: item for t, item in self.searchers.items() if (now - item.timestamp).seconds < 60
             }
 
     async def handle_query(self, msg, addr):
