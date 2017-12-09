@@ -23,7 +23,7 @@ def xor(node_one_id, node_two_id):
 
 
 def fetch_k_closest_nodes(nodes, target_id, k_value=8):
-    return nsmallest(k_value, nodes, lambda node: xor(node[0], target_id))
+    return nsmallest(k_value, nodes, lambda node: xor(node.id, target_id))
 
 
 def get_rand_bool():
