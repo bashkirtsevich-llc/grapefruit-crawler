@@ -1,12 +1,12 @@
 import asyncio
 from collections import namedtuple
 from datetime import datetime
-from random import sample
+from random import sample, randrange
 
 from bencode import bencode, bdecode
 
 from utils import (generate_node_id, generate_id, get_routing_table_index, xor, decode_nodes, encode_nodes,
-                   get_rand_bool, fetch_k_closest_nodes, decode_values)
+                   get_rand_bool, fetch_k_closest_nodes, decode_values, Node)
 
 Searcher = namedtuple("searcher", ["info_hash", "nodes", "values", "attempts_count", "timestamp"])
 
@@ -19,6 +19,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
         self.interval = interval
 
         self.routing_table = [set() for _ in range(160)]
+        self.candidates = []
 
         self.searchers = {}
         self.searchers_seq = 0
@@ -99,21 +100,20 @@ class DHTCrawler(asyncio.DatagramProtocol):
 
         return fetch_k_closest_nodes(closest_l | closest_r, target_id, k_value)
 
-    def add_nodes_to_routing_table(self, nodes):
-        new_k = 1500
+    def add_node(self, node):
+        new_k = 1600
 
-        for node in nodes:
-            r_table_index = get_routing_table_index(xor(node.id, self.node_id))
-            rt = self.routing_table[r_table_index]
+        r_table_index = get_routing_table_index(xor(node.id, self.node_id))
+        rt = self.routing_table[r_table_index]
 
-            if len(rt) < new_k:
-                rt.add(node)
-            elif get_rand_bool() and node not in rt:
-                rt.remove(sample(rt, 1)[0])
-            else:
-                self.find_node((node.host, node.port))
+        if len(rt) < new_k:
+            rt.add(node)
+        elif get_rand_bool() and node not in rt:
+            rt.remove(sample(rt, 1)[0])
+        else:
+            self.find_node((node.host, node.port))
 
-            self.routing_table[r_table_index] = rt  # ???
+        self.routing_table[r_table_index] = rt  # ???
 
     async def search_peers(self, info_hash):
         if self.searchers_seq >= 2 ** 32 - 1:
@@ -156,7 +156,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
             msg_type = str(msg.get("y", b""), "utf-8")
 
             if msg_type == "r":
-                await self.handle_response(msg)
+                await self.handle_response(msg, addr)
             elif msg_type == "q":
                 await self.handle_query(msg, addr)
         except:
@@ -168,9 +168,10 @@ class DHTCrawler(asyncio.DatagramProtocol):
 
             raise
 
-    async def handle_response(self, msg):
+    async def handle_response(self, msg, addr):
         args = msg["r"]
         t = msg["t"]
+        node_id = args["id"]
 
         nodes = set(decode_nodes(args.get("nodes", b"")))
         values = set(decode_values(args.get("values", [])))
@@ -178,28 +179,10 @@ class DHTCrawler(asyncio.DatagramProtocol):
         if t in self.searchers:
             await self.update_peers_searcher(t, nodes, values)
         else:
-            self.add_nodes_to_routing_table(nodes)
+            self.candidates.append(sample(nodes, min(len(nodes), 8)))
 
+        self.add_node(Node(node_id, addr[0], addr[1]))
         await asyncio.sleep(self.interval)
-
-    async def auto_find_nodes(self):
-        self.__running = True
-
-        while self.__running:
-            await asyncio.sleep(self.interval)
-
-            target_id = generate_node_id()
-
-            for node_id, node_ip, node_port in self.get_closest_nodes(target_id):
-                self.find_node((node_ip, node_port), target_id)
-
-            now = datetime.now()
-            old_searchers = self.searchers.copy()
-
-            for t, item in old_searchers.items():
-                if (now - item.timestamp).seconds >= 60:
-                    await self.peers_values_received(item.info_hash, item.values)
-                    self.searchers.pop(t)
 
     async def handle_query(self, msg, addr):
         args = msg["a"]
@@ -263,8 +246,27 @@ class DHTCrawler(asyncio.DatagramProtocol):
 
             await self.announce_peer_received(node_id, info_hash, port, addr)
 
+        self.add_node(Node(node_id, addr[0], addr[1]))
         await asyncio.sleep(self.interval)
-        self.find_node(addr)
+
+    async def auto_find_nodes(self):
+        self.__running = True
+
+        while self.__running:
+            await asyncio.sleep(self.interval)
+
+            target_id = generate_node_id()
+            nodes = self.get_closest_nodes(target_id) + self.candidates.pop(randrange(len(self.candidates)))
+            for _, host, port in nodes:
+                self.find_node((host, port), target_id)
+
+            now = datetime.now()
+            old_searchers = self.searchers.copy()
+
+            for t, item in old_searchers.items():
+                if (now - item.timestamp).seconds >= 60:
+                    await self.peers_values_received(item.info_hash, item.values)
+                    self.searchers.pop(t)
 
     async def ping_received(self, node_id, addr):
         pass
