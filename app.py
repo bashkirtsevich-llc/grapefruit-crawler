@@ -51,10 +51,10 @@ class GrapefruitDHTCrawler(DHTCrawler):
                 transport, protocol = await asyncio.wait_for(
                     self.loop.create_connection(
                         lambda: BitTorrentProtocol(info_hash, result_future), host, port
-                    ), timeout=1, loop=self.loop)
+                    ), timeout=5, loop=self.loop)
 
                 try:
-                    torrent = await asyncio.wait_for(result_future, timeout=10, loop=self.loop)
+                    torrent = await asyncio.wait_for(result_future, timeout=15, loop=self.loop)
                 except asyncio.TimeoutError:
                     transport.close()  # Force close connection
                     raise
