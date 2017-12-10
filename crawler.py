@@ -259,7 +259,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
 
             nodes = self.get_closest_nodes(target_id)
             if self.candidates:
-                nodes.append(self.candidates.pop(randrange(len(self.candidates))))
+                nodes.extend(self.candidates.pop(randrange(len(self.candidates))))
 
             for _, host, port in nodes:
                 self.find_node((host, port), target_id)
