@@ -101,12 +101,10 @@ class DHTCrawler(asyncio.DatagramProtocol):
         return fetch_k_closest_nodes(closest_l | closest_r, target_id, k_value)
 
     def add_node(self, node):
-        new_k = 1600
-
         r_table_index = get_routing_table_index(xor(node.id, self.node_id))
         rt = self.routing_table[r_table_index]
 
-        if len(rt) < new_k:
+        if len(rt) < 1600:
             rt.add(node)
         elif get_rand_bool() and node not in rt:
             rt.remove(sample(rt, 1)[0])
@@ -179,6 +177,9 @@ class DHTCrawler(asyncio.DatagramProtocol):
         if t in self.searchers:
             await self.update_peers_searcher(t, nodes, values)
         else:
+            if len(self.candidates) >= 1600 * 160:
+                self.candidates.pop(randrange(len(self.candidates)))
+
             self.candidates.append(sample(nodes, min(len(nodes), 8)))
 
         self.add_node(Node(node_id, addr[0], addr[1]))
@@ -259,7 +260,8 @@ class DHTCrawler(asyncio.DatagramProtocol):
 
             nodes = self.get_closest_nodes(target_id)
             if self.candidates:
-                nodes.extend(self.candidates.pop(randrange(len(self.candidates))))
+                for _ in range(7):
+                    nodes.extend(self.candidates.pop(randrange(len(self.candidates))))
 
             for _, host, port in nodes:
                 self.find_node((host, port), target_id)
