@@ -177,7 +177,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
         if t in self.searchers:
             await self.update_peers_searcher(t, nodes, values)
         else:
-            if len(self.candidates) >= 1600:
+            if len(self.candidates) >= 16000:
                 self.candidates.pop(randrange(len(self.candidates)))
 
             self.candidates.append(sample(nodes, min(len(nodes), 8)))
