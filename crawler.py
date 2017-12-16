@@ -263,7 +263,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
 
             nodes = self.get_closest_nodes(target_id)
             for node in fetch_k_closest_nodes(self.candidates, target_id):
-                nodes.append(node)
+                nodes.add(node)
                 self.candidates.remove(node)
 
             for _, host, port in nodes:
