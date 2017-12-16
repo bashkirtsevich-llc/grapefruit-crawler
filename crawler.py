@@ -1,7 +1,7 @@
 import asyncio
 from collections import namedtuple
 from datetime import datetime
-from random import sample, randrange
+from random import sample
 
 from bencode import bencode, bdecode
 
@@ -19,7 +19,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
         self.interval = interval
 
         self.routing_table = [set() for _ in range(160)]
-        self.candidates = []
+        self.candidates = set()
 
         self.searchers = {}
         self.searchers_seq = 0
@@ -107,7 +107,8 @@ class DHTCrawler(asyncio.DatagramProtocol):
         if len(rt) < 1600:
             rt.add(node)
         elif get_rand_bool() and node not in rt:
-            rt.remove(sample(rt, 1)[0])
+            for it in sample(rt, 1):
+                rt.remove(it)
         else:
             self.find_node((node.host, node.port))
 
@@ -177,10 +178,12 @@ class DHTCrawler(asyncio.DatagramProtocol):
         if t in self.searchers:
             await self.update_peers_searcher(t, nodes, values)
         else:
-            if len(self.candidates) >= 16000:
-                self.candidates.pop(randrange(len(self.candidates)))
+            if len(self.candidates) >= 16000 * 8:
+                for node in sample(self.candidates, 8):
+                    self.candidates.remove(node)
 
-            self.candidates.append(sample(nodes, min(len(nodes), 8)))
+            for node in sample(nodes, min(len(nodes), 8)):
+                self.candidates.add(node)
 
         self.add_node(Node(node_id, addr[0], addr[1]))
         await asyncio.sleep(self.interval)
@@ -259,8 +262,9 @@ class DHTCrawler(asyncio.DatagramProtocol):
             target_id = generate_node_id()
 
             nodes = self.get_closest_nodes(target_id)
-            for _ in range(min(len(self.candidates), 7)):
-                nodes.extend(self.candidates.pop(randrange(len(self.candidates))))
+            for node in fetch_k_closest_nodes(self.candidates, target_id):
+                nodes.add(node)
+                self.candidates.remove(node)
 
             for _, host, port in nodes:
                 self.find_node((host, port), target_id)
