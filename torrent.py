@@ -16,12 +16,12 @@ class BitTorrentProtocol(asyncio.Protocol):
         self.metadata = {}
 
     def connection_made(self, transport):
-        transport.write(b"\x13BitTorrent protocol")
-        transport.write(b"\x00\x00\x00\x00\x00\x10\x00\x05")
-        transport.write(self.info_hash)
-        transport.write(generate_node_id())
-
         self.transport = transport
+
+        data = b"\x13BitTorrent protocol"
+        data += b"\x00\x00\x00\x00\x00\x10\x00\x05"
+        data += self.info_hash + generate_node_id()
+        self.transport.write(data)
 
     def connection_lost(self, exc):
         self.transport.close()
