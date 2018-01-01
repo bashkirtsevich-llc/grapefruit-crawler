@@ -3,8 +3,6 @@ from hashlib import sha1
 
 from bencode import bencode, bdecode, decode_dict
 
-from utils import generate_node_id
-
 
 class BitTorrentProtocol(asyncio.Protocol):
     def __init__(self, info_hash, result_future):
