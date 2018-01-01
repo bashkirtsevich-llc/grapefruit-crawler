@@ -20,7 +20,7 @@ class BitTorrentProtocol(asyncio.Protocol):
 
         data = b"\x13BitTorrent protocol"
         data += b"\x00\x00\x00\x00\x00\x10\x00\x05"
-        data += self.info_hash + generate_node_id()
+        data += self.info_hash + b"-UT3230-!pT\xed\xb1\xfc\x80x\xa9\x0c\r\x94"
         self.transport.write(data)
 
     def connection_lost(self, exc):
