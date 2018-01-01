@@ -6,6 +6,7 @@ from datetime import datetime
 import motor.motor_asyncio
 from pymongo import ASCENDING
 
+from bt_utp import MicroTransportProtocol
 from crawler import DHTCrawler
 from torrent import BitTorrentProtocol
 from utils import hexlify, decode_bytes
@@ -37,6 +38,22 @@ class GrapefruitDHTCrawler(DHTCrawler):
         result = await self.db.torrents.count(filter={"info_hash": hexlify(info_hash)}) > 0
         return result
 
+    async def create_connection(self, proto, host, port, info_hash, result_future):
+        if proto == "utp":
+            conn = self.loop.create_datagram_endpoint(
+                lambda: MicroTransportProtocol(BitTorrentProtocol(info_hash, result_future)),
+                remote_addr=(host, port)
+            )
+        elif proto == "tcp":
+            conn = self.loop.create_connection(
+                lambda: BitTorrentProtocol(info_hash, result_future),
+                host=host, port=port
+            )
+        else:
+            raise Exception("Unknown protocol")
+
+        return await asyncio.wait_for(conn, timeout=5, loop=self.loop)
+
     async def load_torrent(self, info_hash, peers):
         logging.debug(
             "Start loading torrent\r\n"
@@ -45,49 +62,48 @@ class GrapefruitDHTCrawler(DHTCrawler):
         )
 
         for host, port in peers:
-            try:
-                result_future = self.loop.create_future()
-
-                transport, protocol = await asyncio.wait_for(
-                    self.loop.create_connection(
-                        lambda: BitTorrentProtocol(info_hash, result_future), host, port
-                    ), timeout=5, loop=self.loop)
-
+            for proto in ("utp", "tcp"):
                 try:
-                    torrent = await asyncio.wait_for(result_future, timeout=15, loop=self.loop)
-                except asyncio.TimeoutError:
-                    transport.close()  # Force close connection
-                    raise
+                    result_future = self.loop.create_future()
 
-                if not torrent:
-                    continue
+                    transport, protocol = await self.create_connection(
+                        proto, host, port, info_hash, result_future
+                    )
+                    try:
+                        torrent = await asyncio.wait_for(result_future, timeout=15, loop=self.loop)
+                    except asyncio.TimeoutError:
+                        transport.close()  # Force close connection
+                        raise
 
-                if "files" in torrent:
-                    files = torrent["files"]
-                else:
-                    files = [{"length": torrent["length"], "path": [torrent["name"]]}]
+                    if not torrent:
+                        continue
 
-                metadata = {
-                    "info_hash": hexlify(info_hash),
-                    "files": decode_bytes(files),
-                    "name": decode_bytes(torrent["name"]),
-                    "timestamp": datetime.now()
-                }
+                    if "files" in torrent:
+                        files = torrent["files"]
+                    else:
+                        files = [{"length": torrent["length"], "path": [torrent["name"]]}]
 
-                logging.debug(
-                    "Got torrent metadata\r\n"
-                    "\tinfo_hash: {}\r\n"
-                    "\tmetadata: {}".format(hexlify(info_hash), metadata)
-                )
+                    metadata = {
+                        "info_hash": hexlify(info_hash),
+                        "files": decode_bytes(files),
+                        "name": decode_bytes(torrent["name"]),
+                        "timestamp": datetime.now()
+                    }
 
-                try:
-                    await self.db.torrents.insert_one(metadata)
+                    logging.debug(
+                        "Got torrent metadata\r\n"
+                        "\tinfo_hash: {}\r\n"
+                        "\tmetadata: {}".format(hexlify(info_hash), metadata)
+                    )
+
+                    try:
+                        await self.db.torrents.insert_one(metadata)
+                    except:
+                        pass
+
+                    break
                 except:
                     pass
-
-                break
-            except:
-                pass
 
         if info_hash in self.torrent_in_progress:
             self.torrent_in_progress.remove(info_hash)
