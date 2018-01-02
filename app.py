@@ -86,7 +86,7 @@ class GrapefruitDHTCrawler(DHTCrawler):
                         raise
 
                     if not torrent:
-                        continue
+                        break
 
                     if "files" in torrent:
                         files = torrent["files"]
