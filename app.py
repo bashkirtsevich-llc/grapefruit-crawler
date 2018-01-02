@@ -101,7 +101,7 @@ class GrapefruitDHTCrawler(DHTCrawler):
                     except:
                         pass
 
-                    break
+                    return
                 except:
                     pass
 
