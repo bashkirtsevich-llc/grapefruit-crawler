@@ -22,7 +22,8 @@ class BitTorrentProtocol(asyncio.Protocol):
         self.transport.write(data)
 
     def connection_lost(self, exc):
-        self.transport.close()
+        if self.transport:
+            self.transport.close()
         if not self.result_future.done():
             self.result_future.set_result(None)
 
