@@ -49,12 +49,12 @@ def decode_packet(data):
     # Decode extensions
     p_extensions = []
 
-    ext_type = ExtensionType(next_ext_type[0])
-    while ext_type != ExtensionType.NO_EXTENSION:
+    ext_type = next_ext_type[0]
+    while ext_type != ExtensionType.NO_EXTENSION.value:
         next_ext_type, ext_len, p_data = tuple(_split_bytes(p_data, (1, 1, 0)))
         ext_data, p_data = tuple(_split_bytes(p_data, (int.from_bytes(ext_len, "big"), 0)))
         p_extensions.append((ext_type, ext_data))
-        ext_type = ExtensionType(next_ext_type[0])
+        ext_type = next_ext_type[0] if next_ext_type else ExtensionType.NO_EXTENSION.value
 
     return uTPPacket(
         p_type, p_ver, p_conn_id, p_timestamp, p_timestamp_diff, p_wnd_size, p_seq_nr, p_ack_nr, p_extensions, p_data
@@ -127,8 +127,8 @@ class MicroTransportProtocol(asyncio.DatagramProtocol):
             seq_nr=self.seq_nr,
             ack_nr=0,
             extensions=self.extensions,
-            data=None)
-
+            data=None
+        )
         self.seq_nr += 1
         self.transport.sendto(encode_packet(packet))
         self.status = ConnectionState.CS_SYN_SENT
