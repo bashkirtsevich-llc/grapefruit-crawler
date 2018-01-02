@@ -50,24 +50,25 @@ class GrapefruitDHTCrawler(DHTCrawler):
                 host=host, port=port
             )
         else:
-            raise Exception("Unknown protocol")
+            raise Exception("Unknown protocol '{}'".format(proto))
 
         return await asyncio.wait_for(conn, timeout=5, loop=self.loop)
 
     async def load_torrent(self, info_hash, peers):
-        logging.debug(
-            "Start loading torrent\r\n"
-            "\tinfo_hash: {}\r\n"
-            "\tpeers: {}".format(hexlify(info_hash), peers)
-        )
+        if peers:
+            logging.debug(
+                "Start loading torrent\r\n"
+                "\tinfo_hash: {}\r\n"
+                "\tpeers: {}".format(hexlify(info_hash), peers)
+            )
 
         for host, port in peers:
-            for proto in ("utp", "tcp"):
+            for protocol in ("utp", "tcp"):
                 try:
                     result_future = self.loop.create_future()
 
-                    transport, protocol = await self.create_connection(
-                        proto, host, port, info_hash, result_future
+                    transport, _ = await self.create_connection(
+                        protocol, host, port, info_hash, result_future
                     )
                     try:
                         torrent = await asyncio.wait_for(result_future, timeout=15, loop=self.loop)
@@ -93,8 +94,9 @@ class GrapefruitDHTCrawler(DHTCrawler):
                     logging.debug(
                         "Got torrent metadata\r\n"
                         "\tprotocol: {}\r\n"
+                        "\tpeer: {}\r\n"
                         "\tinfo_hash: {}\r\n"
-                        "\tmetadata: {}".format(proto, hexlify(info_hash), metadata)
+                        "\tmetadata: {}".format(protocol, (host, port), hexlify(info_hash), metadata)
                     )
 
                     try:
