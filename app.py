@@ -92,8 +92,9 @@ class GrapefruitDHTCrawler(DHTCrawler):
 
                     logging.debug(
                         "Got torrent metadata\r\n"
+                        "\tprotocol: {}\r\n"
                         "\tinfo_hash: {}\r\n"
-                        "\tmetadata: {}".format(hexlify(info_hash), metadata)
+                        "\tmetadata: {}".format(proto, hexlify(info_hash), metadata)
                     )
 
                     try:
