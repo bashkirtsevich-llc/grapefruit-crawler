@@ -52,7 +52,7 @@ class GrapefruitDHTCrawler(DHTCrawler):
         else:
             raise Exception("Unknown protocol '{}'".format(proto))
 
-        return await asyncio.wait_for(conn, timeout=5, loop=self.loop)
+        return await asyncio.wait_for(conn, timeout=1, loop=self.loop)
 
     async def load_torrent(self, info_hash, peers):
         if peers:
@@ -63,15 +63,24 @@ class GrapefruitDHTCrawler(DHTCrawler):
             )
 
         for host, port in peers:
-            for protocol in ("utp", "tcp"):
+            if port < 1024:
+                continue
+
+            for protocol in ("tcp", "utp"):
                 try:
                     result_future = self.loop.create_future()
+
+                    logging.debug(
+                        "Connect to\r\n"
+                        "\tpeer: {}\r\n"
+                        "\tinfo_hash: {}, info_hash: {}".format(protocol, (host, port), hexlify(info_hash))
+                    )
 
                     transport, _ = await self.create_connection(
                         protocol, host, port, info_hash, result_future
                     )
                     try:
-                        torrent = await asyncio.wait_for(result_future, timeout=15, loop=self.loop)
+                        torrent = await asyncio.wait_for(result_future, timeout=3, loop=self.loop)
                     except asyncio.TimeoutError:
                         transport.close()  # Force close connection
                         raise
