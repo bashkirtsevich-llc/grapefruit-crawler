@@ -66,7 +66,7 @@ class GrapefruitDHTCrawler(DHTCrawler):
             if port < 1024:
                 continue
 
-            for protocol in ("tcp", "utp"):
+            for protocol in ["tcp"]:  # ["tcp", "utp"] -- experimental
                 try:
                     result_future = self.loop.create_future()
 
