@@ -157,5 +157,5 @@ if __name__ == '__main__':
 
     logging.basicConfig(level=logging.DEBUG)
 
-    svr = GrapefruitDHTCrawler(db_url, db_name, loop=loop, bootstrap_nodes=initial_nodes, interval=0.1)
+    svr = GrapefruitDHTCrawler(db_url, db_name, loop=loop, bootstrap_nodes=initial_nodes, interval=0.2)
     svr.run()
