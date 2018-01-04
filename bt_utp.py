@@ -13,11 +13,6 @@ class Type(Enum):
     ST_SYN = 4
 
 
-class ExtensionType(Enum):
-    NO_EXTENSION = 0
-    EXTENSION_BITS = 2
-
-
 uTPPacket = namedtuple("uTP_packet", [
     "type", "ver", "connection_id", "timestamp", "timestamp_diff", "wnd_size", "seq_nr", "ack_nr", "extensions", "data"
 ])
@@ -50,11 +45,11 @@ def decode_packet(data):
     p_extensions = []
 
     ext_type = next_ext_type[0]
-    while ext_type != ExtensionType.NO_EXTENSION.value:
+    while ext_type:
         next_ext_type, ext_len, p_data = tuple(_split_bytes(p_data, (1, 1, 0)))
         ext_data, p_data = tuple(_split_bytes(p_data, (int.from_bytes(ext_len, "big"), 0)))
         p_extensions.append((ext_type, ext_data))
-        ext_type = next_ext_type[0] if next_ext_type else ExtensionType.NO_EXTENSION.value
+        ext_type = next_ext_type[0] if next_ext_type else 0
 
     return uTPPacket(
         p_type, p_ver, p_conn_id, p_timestamp, p_timestamp_diff, p_wnd_size, p_seq_nr, p_ack_nr, p_extensions, p_data
@@ -68,7 +63,7 @@ def encode_packet(packet):
     result = bytes()
 
     result += _int_to_bytes(packet.type.value << 4 | packet.ver, 1)
-    result += _int_to_bytes(packet.extensions[0][0].value if packet.extensions else ExtensionType.NO_EXTENSION.value, 1)
+    result += _int_to_bytes(packet.extensions[0][0] if packet.extensions else 0, 1)
     result += _int_to_bytes(packet.connection_id, 2)
     result += _int_to_bytes(packet.timestamp, 4)
     result += _int_to_bytes(packet.timestamp_diff, 4)
@@ -78,8 +73,7 @@ def encode_packet(packet):
 
     for idx, (_, ext_data) in enumerate(packet.extensions or []):
         result += (
-            packet.extensions[idx + 1][0].value
-            if idx + 1 < len(packet.extensions) else ExtensionType.NO_EXTENSION.value
+            packet.extensions[idx + 1][0] if idx + 1 < len(packet.extensions) else 0
         ).to_bytes(1, "big")
         result += _int_to_bytes(len(ext_data), 1) + ext_data
 
@@ -113,7 +107,7 @@ class MicroTransportProtocol(asyncio.DatagramProtocol):
         self.ack_nr = None
         self.conn_id_recv = randrange(0xffff)
         self.conn_id_send = self.conn_id_recv + 1
-        self.extensions = [(ExtensionType.EXTENSION_BITS, bytes(8))]
+        self.extensions = [(2, bytes(8))]  # 2 -- EXTENSION_BITS
 
     def connection_made(self, transport):
         self.transport = transport
