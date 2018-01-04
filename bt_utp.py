@@ -87,7 +87,7 @@ def get_tms():
 
 
 def get_tms_diff():
-    return get_tms() + randrange(10000)
+    return (get_tms() + randrange(10000)) & 0xffffffff
 
 
 class ConnectionState(Enum):
