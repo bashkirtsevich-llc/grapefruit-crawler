@@ -138,6 +138,7 @@ class GrapefruitDHTCrawler(DHTCrawler):
         await self.enqueue_torrent(info_hash)
 
     async def peers_values_received(self, info_hash, peers):
+        # TODO: May be we should use another loop?
         asyncio.ensure_future(self.load_torrent(info_hash, peers), loop=self.loop)
 
 
