@@ -1,3 +1,4 @@
 motor==1.1
 pymongo==3.5.1
 git+https://github.com/bashkirtsevich/py3bencode.git#egg=py3-bencode
+git+https://github.com/bashkirtsevich/lib-bt_utp.git#egg=lib-bt_utp
