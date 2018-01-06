@@ -109,8 +109,8 @@ class GrapefruitDHTCrawler(DHTCrawler):
 
     async def connect_with_peers(self, info_hash, peers):
         if peers:
-            # Wait for 2 minutes (120 seconds) for torrent completion
-            await asyncio.wait_for(self.wait_for_torrent(info_hash, peers), timeout=120, loop=self.loop)
+            # Wait for 1 minutes for torrent completion
+            await asyncio.wait_for(self.wait_for_torrent(info_hash, peers), timeout=60, loop=self.loop)
 
         if info_hash in self.torrent_in_progress:
             self.torrent_in_progress.remove(info_hash)
