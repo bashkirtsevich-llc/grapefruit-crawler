@@ -22,6 +22,7 @@ class GrapefruitDHTCrawler(DHTCrawler):
         self.loop.run_until_complete(self.create_index())
 
         self.torrent_in_progress = set()  # For prevent multiple search same torrents
+        self.protocols = ["tcp"]  # ["tcp", "utp"] -- experimental
 
     async def create_index(self):
         index = {
@@ -81,7 +82,7 @@ class GrapefruitDHTCrawler(DHTCrawler):
             )
 
         for host, port in peers:
-            for protocol in ["tcp"]:  # ["tcp", "utp"] -- experimental
+            for protocol in self.protocols:
                 try:
                     result_future = self.loop.create_future()
 
