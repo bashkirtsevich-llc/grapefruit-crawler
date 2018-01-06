@@ -38,6 +38,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
         try:
             msg = bdecode(data)
             asyncio.ensure_future(self.handle_message(msg, addr), loop=self.loop)
+            self.loop.run_until_complete(asyncio.sleep(self.interval / 10))  # Choke input traffic
         except:
             pass
 
@@ -183,7 +184,6 @@ class DHTCrawler(asyncio.DatagramProtocol):
             self.candidates.append(sample(nodes, min(len(nodes), 8)))
 
         self.add_node(Node(node_id, addr[0], addr[1]))
-        await asyncio.sleep(self.interval)
 
     async def handle_query(self, msg, addr):
         args = msg["a"]
@@ -248,14 +248,11 @@ class DHTCrawler(asyncio.DatagramProtocol):
             await self.announce_peer_received(node_id, info_hash, port, addr)
 
         self.add_node(Node(node_id, addr[0], addr[1]))
-        await asyncio.sleep(self.interval)
 
     async def auto_find_nodes(self):
         self.__running = True
 
         while self.__running:
-            await asyncio.sleep(self.interval)
-
             target_id = generate_node_id()
 
             nodes = self.get_closest_nodes(target_id)
@@ -270,6 +267,8 @@ class DHTCrawler(asyncio.DatagramProtocol):
                 if (now - item.timestamp).seconds >= 60:
                     await self.peers_values_received(item.info_hash, item.values)
                     self.searchers.pop(t)
+
+            await asyncio.sleep(self.interval)
 
     async def ping_received(self, node_id, addr):
         pass
