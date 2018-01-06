@@ -54,6 +54,24 @@ class GrapefruitDHTCrawler(DHTCrawler):
 
         return await asyncio.wait_for(conn, timeout=1, loop=self.loop)
 
+    async def save_torrent(self, info_hash, torrent):
+        if "files" in torrent:
+            files = torrent["files"]
+        else:
+            files = [{"length": torrent["length"], "path": [torrent["name"]]}]
+
+        metadata = {
+            "info_hash": hexlify(info_hash),
+            "files": decode_bytes(files),
+            "name": decode_bytes(torrent["name"]),
+            "timestamp": datetime.now()
+        }
+
+        try:
+            await self.db.torrents.insert_one(metadata)
+        except:
+            pass
+
     async def load_torrent(self, info_hash, peers):
         if peers:
             logging.debug(
@@ -82,35 +100,18 @@ class GrapefruitDHTCrawler(DHTCrawler):
                         transport.close()  # Force close connection
                         raise
 
-                    if not torrent:
-                        break
+                    if torrent:
+                        self.save_torrent(info_hash, torrent)
 
-                    if "files" in torrent:
-                        files = torrent["files"]
+                        logging.debug(
+                            "Got torrent metadata\r\n"
+                            "\tprotocol: {}\r\n"
+                            "\tpeer: {}\r\n"
+                            "\tinfo_hash: {}\r\n".format(protocol, (host, port), hexlify(info_hash))
+                        )
+                        return
                     else:
-                        files = [{"length": torrent["length"], "path": [torrent["name"]]}]
-
-                    metadata = {
-                        "info_hash": hexlify(info_hash),
-                        "files": decode_bytes(files),
-                        "name": decode_bytes(torrent["name"]),
-                        "timestamp": datetime.now()
-                    }
-
-                    logging.debug(
-                        "Got torrent metadata\r\n"
-                        "\tprotocol: {}\r\n"
-                        "\tpeer: {}\r\n"
-                        "\tinfo_hash: {}\r\n"
-                        "\tmetadata: {}".format(protocol, (host, port), hexlify(info_hash), metadata)
-                    )
-
-                    try:
-                        await self.db.torrents.insert_one(metadata)
-                    except:
-                        pass
-
-                    return
+                        break  # Interrupt "protocols" loop & connect to next peer
                 except:
                     pass
 
