@@ -24,8 +24,6 @@ class BitTorrentProtocol(asyncio.Protocol):
     def connection_lost(self, exc):
         if self.transport:
             self.transport.close()
-        if not self.result_future.done():
-            self.result_future.set_result(None)
 
     def send_extended_message(self, message_id, message_data):
         buf = b"\x14" + message_id.to_bytes(1, "big") + bencode(message_data)
