@@ -63,9 +63,6 @@ class GrapefruitDHTCrawler(DHTCrawler):
             )
 
         for host, port in peers:
-            if port < 1024:
-                continue
-
             for protocol in ["tcp"]:  # ["tcp", "utp"] -- experimental
                 try:
                     result_future = self.loop.create_future()
@@ -139,7 +136,12 @@ class GrapefruitDHTCrawler(DHTCrawler):
 
     async def peers_values_received(self, info_hash, peers):
         # TODO: May be we should use another loop?
-        asyncio.ensure_future(self.load_torrent(info_hash, peers), loop=self.loop)
+        asyncio.ensure_future(
+            self.load_torrent(
+                # Ignore odd peers with bad port
+                info_hash, [peer for peer in peers if peer.port >= 1024]
+            ), loop=self.loop
+        )
 
 
 if __name__ == '__main__':
