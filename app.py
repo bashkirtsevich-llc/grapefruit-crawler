@@ -4,9 +4,9 @@ import os
 from datetime import datetime
 
 import motor.motor_asyncio
+from bt_utp import MicroTransportProtocol
 from pymongo import ASCENDING
 
-from bt_utp import MicroTransportProtocol
 from crawler import DHTCrawler
 from torrent import BitTorrentProtocol
 from utils import hexlify, decode_bytes
