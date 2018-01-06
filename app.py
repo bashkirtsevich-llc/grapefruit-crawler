@@ -87,8 +87,9 @@ class GrapefruitDHTCrawler(DHTCrawler):
 
                     logging.debug(
                         "Connect to\r\n"
+                        "\tprotocol: {}\r\n"
                         "\tpeer: {}\r\n"
-                        "\tinfo_hash: {}, info_hash: {}".format(protocol, (host, port), hexlify(info_hash))
+                        "\tinfo_hash: {}".format(protocol, (host, port), hexlify(info_hash))
                     )
 
                     transport, _ = await self.create_connection(
