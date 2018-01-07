@@ -103,10 +103,13 @@ class GrapefruitDHTCrawler(DHTCrawler):
         )
 
         # Wait for 1 minute for torrent completion
-        done, _ = await asyncio.wait([
+        done, pending = await asyncio.wait([
             self.connect_to_peer(peer, protocol, info_hash)
             for peer, protocol in product(peers, self.protocols)
         ], timeout=60.0, return_when=asyncio.FIRST_COMPLETED, loop=self.loop)
+
+        for task in pending:
+            task.cancel()
 
         try:
             return done.pop().result() if done else None
