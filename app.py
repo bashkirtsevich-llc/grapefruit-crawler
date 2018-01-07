@@ -76,32 +76,17 @@ class GrapefruitDHTCrawler(DHTCrawler):
 
     async def connect_to_peer(self, peer, protocol, info_hash):
         result_future = self.loop.create_future()
-
-        logging.debug(
-            "Connect to\r\n"
-            "\tprotocol: {}\r\n"
-            "\tpeer: {}\r\n"
-            "\tinfo_hash: {}".format(protocol, peer, hexlify(info_hash))
-        )
-
         await self.create_connection(protocol, peer.host, peer.port, info_hash, result_future)
         result = await result_future
 
         logging.debug(
             "Got torrent metadata\r\n"
-            "\tprotocol: {}\r\n"
-            "\tpeer: {}\r\n"
-            "\tinfo_hash: {}\r\n".format(protocol, peer, hexlify(info_hash))
+            "\tpeer: {} / {}\r\n"
+            "\tinfo_hash: {}".format(protocol, peer, hexlify(info_hash))
         )
         return result
 
     async def wait_for_torrent(self, info_hash, peers):
-        logging.debug(
-            "Connect with torrent peers\r\n"
-            "\tinfo_hash: {}\r\n"
-            "\tpeers: {}".format(hexlify(info_hash), peers)
-        )
-
         # Wait for 1 minute for torrent completion
         done, pending = await asyncio.wait([
             self.connect_to_peer(peer, protocol, info_hash)
@@ -130,10 +115,6 @@ class GrapefruitDHTCrawler(DHTCrawler):
         has_torrent = await self.is_torrent_exists(info_hash)
 
         if info_hash not in self.torrent_in_progress and not has_torrent:
-            logging.debug(
-                "Enqueue search peers for torrent\r\n"
-                "\tinfo_hash: {}".format(hexlify(info_hash)))
-
             self.torrent_in_progress.add(info_hash)
             await self.search_peers(info_hash)
 
@@ -146,8 +127,7 @@ class GrapefruitDHTCrawler(DHTCrawler):
     async def peers_values_received(self, info_hash, peers):
         asyncio.ensure_future(
             self.connect_with_peers(
-                # Ignore odd peers with bad port
-                info_hash, [peer for peer in peers if peer.port >= 1024]
+                info_hash, [peer for peer in peers if peer.port >= 1024]  # Ignore odd peers with bad port
             ), loop=self.loop
         )
 
