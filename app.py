@@ -97,20 +97,26 @@ class GrapefruitDHTCrawler(DHTCrawler):
             "\tpeers: {}".format(hexlify(info_hash), peers)
         )
 
+        # Wait for 1 minute for torrent completion
         done, _ = await asyncio.wait([
             self.connect_to_peer(peer, protocol, info_hash)
             for peer, protocol in product(peers, self.protocols)
-        ], return_when=asyncio.FIRST_COMPLETED)
+        ], timeout=60.0, return_when=asyncio.FIRST_COMPLETED, loop=self.loop)
+
+        if not done:
+            return None
 
         task = done.pop()
         if task.exception() is None:
-            torrent = done.pop().result()
-            await self.save_torrent(info_hash, torrent)
+            return task.result()
+
+        return None
 
     async def connect_with_peers(self, info_hash, peers):
         if peers:
-            # Wait for 1 minutes for torrent completion
-            await asyncio.wait_for(self.wait_for_torrent(info_hash, peers), timeout=60, loop=self.loop)
+            torrent = await self.wait_for_torrent(info_hash, peers)
+            if torrent:
+                await self.save_torrent(info_hash, torrent)
 
         if info_hash in self.torrent_in_progress:
             self.torrent_in_progress.remove(info_hash)
