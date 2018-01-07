@@ -71,7 +71,7 @@ class GrapefruitDHTCrawler(DHTCrawler):
 
         try:
             return await conn
-        except asyncio.TimeoutError:
+        except:
             return None
 
     async def connect_to_peer(self, peer, protocol, info_hash):
