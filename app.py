@@ -113,10 +113,11 @@ class GrapefruitDHTCrawler(DHTCrawler):
         return None
 
     async def connect_with_peers(self, info_hash, peers):
-        if peers:
-            torrent = await self.wait_for_torrent(info_hash, peers)
+        for i in range(0, len(peers), 20):
+            torrent = await self.wait_for_torrent(info_hash, peers[i: i + 20])
             if torrent:
                 await self.save_torrent(info_hash, torrent)
+                break
 
         if info_hash in self.torrent_in_progress:
             self.torrent_in_progress.remove(info_hash)
