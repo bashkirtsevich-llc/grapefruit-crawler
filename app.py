@@ -57,17 +57,22 @@ class GrapefruitDHTCrawler(DHTCrawler):
 
     async def create_connection(self, proto, host, port, info_hash, result_future):
         if proto == "utp":
-            return await self.loop.create_datagram_endpoint(
+            conn = self.loop.create_datagram_endpoint(
                 lambda: MicroTransportProtocol(BitTorrentProtocol(info_hash, result_future)),
                 remote_addr=(host, port)
             )
         elif proto == "tcp":
-            return await self.loop.create_connection(
+            conn = self.loop.create_connection(
                 lambda: BitTorrentProtocol(info_hash, result_future),
                 host=host, port=port
             )
         else:
             raise Exception("Unknown protocol '{}'".format(proto))
+
+        try:
+            return await conn
+        except asyncio.TimeoutError:
+            return None
 
     async def connect_to_peer(self, peer, protocol, info_hash):
         result_future = self.loop.create_future()
@@ -103,14 +108,10 @@ class GrapefruitDHTCrawler(DHTCrawler):
             for peer, protocol in product(peers, self.protocols)
         ], timeout=60.0, return_when=asyncio.FIRST_COMPLETED, loop=self.loop)
 
-        if not done:
+        try:
+            return done.pop().result() if done else None
+        except:
             return None
-
-        task = done.pop()
-        if task.exception() is None:
-            return task.result()
-
-        return None
 
     async def connect_with_peers(self, info_hash, peers):
         for i in range(0, len(peers), 20):
