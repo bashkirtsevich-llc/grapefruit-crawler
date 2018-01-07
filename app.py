@@ -72,7 +72,7 @@ class GrapefruitDHTCrawler(DHTCrawler):
         try:
             return await conn
         except:
-            return None
+            return
 
     async def connect_to_peer(self, peer, protocol, info_hash):
         result_future = self.loop.create_future()
@@ -84,7 +84,7 @@ class GrapefruitDHTCrawler(DHTCrawler):
             "\tinfo_hash: {}".format(protocol, peer, hexlify(info_hash))
         )
 
-        transport, _ = await self.create_connection(protocol, peer.host, peer.port, info_hash, result_future)
+        await self.create_connection(protocol, peer.host, peer.port, info_hash, result_future)
         result = await result_future
 
         logging.debug(
