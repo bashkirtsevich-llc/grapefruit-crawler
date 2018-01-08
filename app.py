@@ -57,34 +57,25 @@ class GrapefruitDHTCrawler(DHTCrawler):
 
     async def create_connection(self, proto, host, port, info_hash, result_future):
         if proto == "utp":
-            conn = self.loop.create_datagram_endpoint(
+            return await self.loop.create_datagram_endpoint(
                 lambda: MicroTransportProtocol(BitTorrentProtocol(info_hash, result_future)),
                 remote_addr=(host, port)
             )
         elif proto == "tcp":
-            conn = self.loop.create_connection(
+            return await self.loop.create_connection(
                 lambda: BitTorrentProtocol(info_hash, result_future),
                 host=host, port=port
             )
         else:
             raise Exception("Unknown protocol '{}'".format(proto))
 
-        try:
-            return await conn
-        except:
-            return
-
     async def connect_to_peer(self, peer, protocol, info_hash):
-        result_future = self.loop.create_future()
-        await self.create_connection(protocol, peer.host, peer.port, info_hash, result_future)
-        result = await result_future
-
-        logging.debug(
-            "Got torrent metadata\r\n"
-            "\tpeer: {} / {}\r\n"
-            "\tinfo_hash: {}".format(protocol, peer, hexlify(info_hash))
-        )
-        return result
+        try:
+            result_future = self.loop.create_future()
+            await self.create_connection(protocol, peer.host, peer.port, info_hash, result_future)
+            return await result_future
+        except:
+            return None
 
     async def wait_for_torrent(self, info_hash, peers):
         # Wait for 1 minute for torrent completion
@@ -96,15 +87,17 @@ class GrapefruitDHTCrawler(DHTCrawler):
         for task in pending:
             task.cancel()
 
-        try:
-            return done.pop().result() if done else None
-        except:
-            return None
+        return await done.pop() if done else None
 
     async def connect_with_peers(self, info_hash, peers):
         for i in range(0, len(peers), 20):
-            torrent = await self.wait_for_torrent(info_hash, peers[i: i + 20])
+            try:
+                torrent = await self.wait_for_torrent(info_hash, peers[i: i + 20])
+            except:
+                torrent = None
+
             if torrent:
+                logging.debug("Got torrent metadata\r\n\tinfo_hash: {}".format(hexlify(info_hash)))
                 await self.save_torrent(info_hash, torrent)
                 break
 
@@ -113,7 +106,6 @@ class GrapefruitDHTCrawler(DHTCrawler):
 
     async def enqueue_torrent(self, info_hash):
         has_torrent = await self.is_torrent_exists(info_hash)
-
         if info_hash not in self.torrent_in_progress and not has_torrent:
             self.torrent_in_progress.add(info_hash)
             await self.search_peers(info_hash)
