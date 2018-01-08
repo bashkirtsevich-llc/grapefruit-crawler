@@ -6,6 +6,8 @@ from heapq import nsmallest
 from random import getrandbits
 from socket import inet_ntoa, inet_aton
 
+from chardet import detect
+
 Peer = namedtuple("peer", ["host", "port"])
 Node = namedtuple("node", ["id", "host", "port"])
 
@@ -77,11 +79,11 @@ def hexlify(info_hash):
     return str(binascii.hexlify(info_hash), "utf-8")
 
 
-def decode_bytes(obj):
-    if isinstance(obj, list):
-        return [decode_bytes(item) for item in obj]
-    if isinstance(obj, dict):
-        return {key: decode_bytes(value) for key, value in obj.items()}
-    if isinstance(obj, bytes):
-        return str(obj, "utf-8")
-    return obj
+def decode_bytes(byte_str):
+    if isinstance(byte_str, list):
+        return [decode_bytes(item) for item in byte_str]
+    if isinstance(byte_str, dict):
+        return {key: decode_bytes(value) for key, value in byte_str.items()}
+    if isinstance(byte_str, bytes):
+        return str(byte_str, detect(byte_str).get("encoding", "utf-8"))
+    return byte_str
