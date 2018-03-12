@@ -1,0 +1,19 @@
+sudo: required
+
+language: python
+
+services:
+  - docker
+
+install:
+  - echo "install nothing!"
+
+script:
+  - echo "no tests!"
+
+after_success:
+  - docker --version
+  - docker build -t grapefruit-crawler .
+  - docker tag grapefruit-crawler $DOCKER_USERNAME/grapefruit-crawler
+  - docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"
+  - docker push bashkirtsevich/grapefruit-crawler:latest
