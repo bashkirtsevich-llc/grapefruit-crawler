@@ -1,4 +1,6 @@
 # Grapefruit-crawler
+[![Build Status](https://travis-ci.org/bashkirtsevich-llc/grapefruit-crawler.svg?branch=master)](https://travis-ci.org/bashkirtsevich-llc/grapefruit-crawler)
+
 Grapefruit torrent-network sniffer.
 
 ## Requirements
