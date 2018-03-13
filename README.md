@@ -1,4 +1,5 @@
 # Grapefruit-crawler
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/fcd09fccacfd45a7a3590c64d9ea95aa)](https://www.codacy.com/app/bashkirtsevich/grapefruit-crawler?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=bashkirtsevich-llc/grapefruit-crawler&amp;utm_campaign=Badge_Grade)
 [![Build Status](https://travis-ci.org/bashkirtsevich-llc/grapefruit-crawler.svg?branch=master)](https://travis-ci.org/bashkirtsevich-llc/grapefruit-crawler)
 
 Grapefruit torrent-network sniffer.
