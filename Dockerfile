@@ -1,6 +1,6 @@
 FROM python:3.6.3
 
-MAINTAINER Bashkirtsev D.A.
+LABEL maintainer="bashkirtsevich@gmail.com"
 
 WORKDIR /usr/src/app
 COPY . .
