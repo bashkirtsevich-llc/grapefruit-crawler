@@ -127,6 +127,8 @@ class GrapefruitDHTCrawler(DHTCrawler):
 if __name__ == '__main__':
     db_url = os.environ["MONGODB_URL"]
     db_name = os.getenv("MONGODB_BASE_NAME", "grapefruit")
+    socket_host = os.getenv("SOCKET_HOST", "0.0.0.0")
+    socket_port = int(os.getenv("SOCKET_PORT", "6881"))
 
     initial_nodes = [
         ("router.bittorrent.com", 6881),
@@ -140,4 +142,4 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
 
     svr = GrapefruitDHTCrawler(db_url, db_name, loop=loop, bootstrap_nodes=initial_nodes, interval=0.2)
-    svr.run()
+    svr.run(socket_host, socket_port)
