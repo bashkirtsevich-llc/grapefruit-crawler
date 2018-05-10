@@ -1,6 +1,6 @@
 import binascii
 import math
-import os
+import secrets
 from collections import namedtuple
 from heapq import nsmallest
 from random import getrandbits
@@ -13,11 +13,11 @@ Node = namedtuple("node", ["id", "host", "port"])
 
 
 def generate_id():
-    return os.urandom(2)
+    return secrets.token_bytes(2)
 
 
 def generate_node_id():
-    return os.urandom(20)
+    return secrets.token_bytes(20)
 
 
 def xor(node_one_id, node_two_id):
