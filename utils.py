@@ -1,9 +1,8 @@
 import binascii
 import math
-import secrets
 from collections import namedtuple
 from heapq import nsmallest
-from random import getrandbits
+from secrets import token_bytes, randbits
 from socket import inet_ntoa, inet_aton
 
 from chardet import detect
@@ -13,11 +12,11 @@ Node = namedtuple("node", ["id", "host", "port"])
 
 
 def generate_id():
-    return secrets.token_bytes(2)
+    return token_bytes(2)
 
 
 def generate_node_id():
-    return secrets.token_bytes(20)
+    return token_bytes(20)
 
 
 def xor(node_one_id, node_two_id):
@@ -29,7 +28,7 @@ def fetch_k_closest_nodes(nodes, target_id, k_value=8):
 
 
 def get_rand_bool():
-    return bool(getrandbits(1))
+    return bool(randbits(1))
 
 
 def get_routing_table_index(distance):
