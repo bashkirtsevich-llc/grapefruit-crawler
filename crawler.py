@@ -3,7 +3,7 @@ from collections import namedtuple
 from datetime import datetime
 from random import sample, randrange
 
-from bencode import bencode, bdecode
+from bencode import bencode, bdecode, BTFailure
 
 from utils import (generate_node_id, generate_id, get_routing_table_index, xor, decode_nodes, encode_nodes,
                    get_rand_bool, fetch_k_closest_nodes, decode_values, Node)
@@ -38,7 +38,7 @@ class DHTCrawler(asyncio.DatagramProtocol):
         try:
             msg = bdecode(data)
             asyncio.ensure_future(self.handle_message(msg, addr), loop=self.loop)
-        except:
+        except BTFailure:
             pass
 
     def run(self, host, port):
