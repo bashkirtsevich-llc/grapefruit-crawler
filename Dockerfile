@@ -1,4 +1,4 @@
-FROM python:3.6.3
+FROM python:3.6.3-alpine3.7
 
 MAINTAINER Bashkirtsev D.A. <bashkirtsevich@gmail.com>
 LABEL maintainer="bashkirtsevich@gmail.com"
