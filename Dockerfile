@@ -6,7 +6,7 @@ LABEL maintainer="bashkirtsevich@gmail.com"
 WORKDIR /usr/src/app
 COPY . .
 RUN apk update && apk upgrade && \
-    apk add --no-cache git
-RUN pip install -r requirements.txt
+    apk add --no-cache git && \
+    pip install -r requirements.txt
 
 CMD [ "python", "app.py" ]
