@@ -1,145 +1,55 @@
-import asyncio
-import logging
 import os
-from datetime import datetime
-from itertools import product
-
-import motor.motor_asyncio
-from bt_utp import MicroTransportProtocol
-from pymongo import ASCENDING
-
-from crawler import DHTCrawler
-from torrent import BitTorrentProtocol
-from utils import hexlify, decode_bytes
 
 
-class GrapefruitDHTCrawler(DHTCrawler):
-    def __init__(self, db_url, db_name, **kwargs):
-        super().__init__(**kwargs)
+def run_server(server_factory):
+    initial_nodes = [
+        ("67.215.246.10", 6881),  # router.bittorrent.com
+        ("87.98.162.88", 6881),  # dht.transmissionbt.com
+        ("82.221.103.244", 6881)  # router.utorrent.com
+    ]
 
-        client = motor.motor_asyncio.AsyncIOMotorClient(db_url)
-        self.db = client[db_name]
-
-        self.loop.run_until_complete(self.create_index())
-
-        self.torrent_in_progress = set()  # For prevent multiple search same torrents
-        self.protocols = ["tcp"]  # ["tcp", "utp"] -- experimental
-
-    async def create_index(self):
-        index = {
-            "name": "info_hash",
-            "keys": [("info_hash", ASCENDING)],
-            "unique": True
-        }
-
-        coll = self.db.torrents
-        if index["name"] not in await coll.index_information():
-            await coll.create_index(**index)
-
-    async def is_torrent_exists(self, info_hash):
-        result = await self.db.torrents.count(filter={"info_hash": hexlify(info_hash)}) > 0
-        return result
-
-    async def save_torrent(self, info_hash, torrent):
-        if "files" in torrent:
-            files = torrent["files"]
-        else:
-            files = [{"length": torrent["length"], "path": [torrent["name"]]}]
-
-        metadata = {
-            "info_hash": hexlify(info_hash),
-            "files": decode_bytes(files),
-            "name": decode_bytes(torrent["name"]),
-            "timestamp": datetime.now()
-        }
-
-        await self.db.torrents.insert_one(metadata)
-
-    async def create_connection(self, proto, host, port, info_hash, result_future):
-        if proto == "utp":
-            return await self.loop.create_datagram_endpoint(
-                lambda: MicroTransportProtocol(BitTorrentProtocol(info_hash, result_future)),
-                remote_addr=(host, port)
-            )
-        elif proto == "tcp":
-            return await self.loop.create_connection(
-                lambda: BitTorrentProtocol(info_hash, result_future),
-                host=host, port=port
-            )
-        else:
-            raise Exception("Unknown protocol '{}'".format(proto))
-
-    async def connect_to_peer(self, peer, protocol, info_hash):
-        try:
-            result_future = self.loop.create_future()
-            await self.create_connection(protocol, peer.host, peer.port, info_hash, result_future)
-            return await result_future
-        except:
-            return None
-
-    async def wait_for_torrent(self, info_hash, peers):
-        # Wait for 1 minute for torrent completion
-        done, pending = await asyncio.wait([
-            self.connect_to_peer(peer, protocol, info_hash)
-            for peer, protocol in product(peers, self.protocols)
-        ], timeout=60.0, return_when=asyncio.FIRST_COMPLETED, loop=self.loop)
-
-        for task in pending:
-            task.cancel()
-
-        return await done.pop() if done else None
-
-    async def connect_with_peers(self, info_hash, peers):
-        for i in range(0, len(peers), 20):
-            try:
-                torrent = await self.wait_for_torrent(info_hash, peers[i: i + 20])
-            except:
-                torrent = None
-
-            if torrent:
-                logging.debug("Got torrent metadata\r\n\tinfo_hash: {}".format(hexlify(info_hash)))
-                await self.save_torrent(info_hash, torrent)
-                break
-
-        if info_hash in self.torrent_in_progress:
-            self.torrent_in_progress.remove(info_hash)
-
-    async def enqueue_torrent(self, info_hash):
-        has_torrent = await self.is_torrent_exists(info_hash)
-        if info_hash not in self.torrent_in_progress and not has_torrent:
-            self.torrent_in_progress.add(info_hash)
-            await self.search_peers(info_hash)
-
-    async def get_peers_received(self, node_id, info_hash, addr):
-        await self.enqueue_torrent(info_hash)
-
-    async def announce_peer_received(self, node_id, info_hash, port, addr):
-        await self.enqueue_torrent(info_hash)
-
-    async def peers_values_received(self, info_hash, peers):
-        asyncio.ensure_future(
-            self.connect_with_peers(
-                info_hash, [peer for peer in peers if peer.port >= 1024]  # Ignore odd peers with bad port
-            ), loop=self.loop
-        )
-
-
-if __name__ == '__main__':
-    db_url = os.environ["MONGODB_URL"]
-    db_name = os.getenv("MONGODB_BASE_NAME", "grapefruit")
     socket_host = os.getenv("SOCKET_HOST", "0.0.0.0")
     socket_port = int(os.getenv("SOCKET_PORT", "6881"))
 
-    initial_nodes = [
-        ("router.bittorrent.com", 6881),
-        ("dht.transmissionbt.com", 6881),
-        ("router.utorrent.com", 6881)
-    ]
+    miner_interval = float(os.getenv("MINER_INTERVAL", "0.1"))
+    download_bandwidth = int(os.getenv("DOWNLOAD_BANDWIDTH", "0"))
+    upload_bandwidth = int(os.getenv("UPLOAD_BANDWIDTH", "0"))
 
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    server = server_factory(
+        bootstrap_nodes=initial_nodes,
+        miner_interval=miner_interval,
+        download_speed=download_bandwidth,
+        upload_speed=upload_bandwidth
+    )
+    server.run(
+        host=socket_host,
+        port=socket_port
+    )
 
-    logging.basicConfig(level=logging.DEBUG)
 
-    svr = GrapefruitDHTCrawler(db_url, db_name, loop=loop, bootstrap_nodes=initial_nodes, interval=0.2)
-    svr.run(socket_host, socket_port)
+if __name__ == '__main__':
+    crawler_name = os.getenv("CRAWLER_WRITER", "file")
+
+    if crawler_name == "file":
+        from crawler_file import TorrentCrawlerFile
+
+        run_server(
+            lambda **kwargs: TorrentCrawlerFile(
+                folder_path=os.getenv("TORRENTS_FOLDER"),
+                **kwargs
+            )
+        )
+
+    elif crawler_name == "mongo":
+        from crawler_mongo import TorrentCrawlerMongo
+
+        run_server(
+            lambda **kwargs: TorrentCrawlerMongo(
+                db_url=os.getenv("MONGO_URI"),
+                db_name=os.getenv("MONGO_DB_NAME"),
+                **kwargs
+            )
+        )
+
+    else:
+        print("Wrong 'CRAWLER_WRITER' value")

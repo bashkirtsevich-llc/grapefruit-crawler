@@ -46,7 +46,8 @@ def decode_values(values):
         ip = inet_ntoa(value[0: 4])  # from network order to IP address
         port = int.from_bytes(value[4: 6], "big")
 
-        yield Peer(ip, port)
+        if port >= 1024:
+            yield Peer(ip, port)
 
 
 def decode_nodes(nodes):
@@ -59,7 +60,8 @@ def decode_nodes(nodes):
         ip = inet_ntoa(nodes[i + 20: i + 24])  # from network order to IP address
         port = int.from_bytes(nodes[i + 24: i + 26], "big")
 
-        yield Node(node_id, ip, port)
+        if port >= 1024:
+            yield Node(node_id, ip, port)
 
 
 def encode_nodes(nodes):
