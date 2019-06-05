@@ -1,9 +1,7 @@
 import asyncio
-import os
 
 from spyder import DHTSpyder
 from torrent import BitTorrentProtocol
-from utils import hexlify
 
 
 class TorrentCrawler(DHTSpyder):
