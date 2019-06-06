@@ -5,6 +5,10 @@ from bencode import bencode, bdecode, decode_dict, bytes_decode_recursive
 from utils import decode_bkeys
 
 
+class BitTorrentProtocolException(Exception):
+    pass
+
+
 class BitTorrentProtocol(asyncio.Protocol):
     def __init__(self, info_hash, result_future):
         self.info_hash = info_hash
@@ -65,15 +69,13 @@ class BitTorrentProtocol(asyncio.Protocol):
                     metadata += self.metadata[key]
 
                 if len(metadata) == r["total_size"]:
-                    if sha1(metadata).digest() == self.info_hash:
-                        result = metadata
-                    else:
-                        result = None
-
-                    if not self.result_future.done():
-                        self.result_future.set_result(result)
-
                     self.transport.close()
+
+                    if sha1(metadata).digest() == self.info_hash:
+                        if not self.result_future.done():
+                            self.result_future.set_result(metadata)
+                    else:
+                        raise BitTorrentProtocolException("info_hash != sha1(metadata)")
 
     def data_received(self, data):
         def parse_message(message):
