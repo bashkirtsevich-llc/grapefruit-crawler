@@ -5,6 +5,8 @@ from pymongo import ASCENDING
 
 from crawler import TorrentCrawler
 from utils import hexlify, decode_bytes
+from bencode import bdecode
+from utils import decode_bkeys
 
 
 class TorrentCrawlerMongo(TorrentCrawler):
@@ -30,17 +32,19 @@ class TorrentCrawlerMongo(TorrentCrawler):
         if await self.db.torrents.count(filter={"info_hash": hexlify(info_hash)}) == 0:
             await super(TorrentCrawlerMongo, self).enqueue_torrent(info_hash)
 
-    async def save_torrent(self, info_hash, torrent):
+    async def save_torrent_metadata(self, info_hash, metadata):
+        torrent = bdecode(metadata, decoder=decode_bkeys)
+
         if "files" in torrent:
             files = torrent["files"]
         else:
             files = [{"length": torrent["length"], "path": [torrent["name"]]}]
 
-        metadata = {
+        item = {
             "info_hash": hexlify(info_hash),
             "files": decode_bytes(files),
             "name": decode_bytes(torrent["name"]),
             "timestamp": datetime.now()
         }
 
-        await self.db.torrents.insert_one(metadata)
+        await self.db.torrents.insert_one(item)

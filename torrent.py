@@ -1,7 +1,8 @@
 import asyncio
 from hashlib import sha1
 
-from bencode import bencode, bdecode, decode_dict
+from bencode import bencode, bdecode, decode_dict, bytes_decode_recursive
+from utils import decode_bkeys
 
 
 class BitTorrentProtocol(asyncio.Protocol):
@@ -31,7 +32,7 @@ class BitTorrentProtocol(asyncio.Protocol):
 
     def handle_message(self, msg_data):
         if msg_data[0] == 0:
-            hs_body = bdecode(msg_data[1:])
+            hs_body = bdecode(msg_data[1:], decoder=decode_bkeys)
 
             metadata_size = hs_body.get("metadata_size", 0)
             ut_metadata_id = hs_body.get("m", {}).get("ut_metadata", 0)
@@ -53,6 +54,8 @@ class BitTorrentProtocol(asyncio.Protocol):
         elif msg_data[0] == 1:
             r, l = decode_dict(msg_data[1:], 0)
 
+            r = bytes_decode_recursive(r, decoder=decode_bkeys)
+
             if r["msg_type"] == 1:
                 self.metadata[r["piece"]] = msg_data[l + 1:]
 
@@ -63,7 +66,7 @@ class BitTorrentProtocol(asyncio.Protocol):
 
                 if len(metadata) == r["total_size"]:
                     if sha1(metadata).digest() == self.info_hash:
-                        result = bdecode(metadata)
+                        result = metadata
                     else:
                         result = None
 

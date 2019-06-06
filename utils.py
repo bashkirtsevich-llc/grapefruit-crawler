@@ -88,3 +88,7 @@ def decode_bytes(byte_str):
     if isinstance(byte_str, bytes):
         return str(byte_str, detect(byte_str).get("encoding", "utf-8"))
     return byte_str
+
+
+def decode_bkeys(val_type, value):
+    return str(value, "utf-8") if val_type == "key" else value

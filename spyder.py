@@ -7,7 +7,7 @@ from random import SystemRandom
 from bencode import bencode, bdecode, BTFailure
 
 from utils import (generate_node_id, generate_id, get_routing_table_index, xor, decode_nodes, encode_nodes,
-                   get_rand_bool, fetch_k_closest_nodes, decode_values, Node)
+                   get_rand_bool, fetch_k_closest_nodes, decode_values, Node, decode_bkeys)
 
 Searcher = namedtuple("searcher", ["info_hash", "nodes", "values", "attempts_count", "timestamp"])
 
@@ -39,7 +39,7 @@ class DHTSpyder(UDPServer):
 
     async def datagram_received(self, data, addr):
         try:
-            msg = bdecode(data, decoder=lambda t, x: str(x, "utf-8") if t == "key" else x)
+            msg = bdecode(data, decoder=decode_bkeys)
         except BTFailure:
             # TODO: Log error
             pass

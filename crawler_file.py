@@ -10,12 +10,12 @@ class TorrentCrawlerFile(TorrentCrawler):
         self.folder_path = folder_path
 
     def get_path_for_torrent(self, info_hash):
-        return os.path.join(self.folder_path, hexlify(info_hash))
+        return os.path.join(self.folder_path, hexlify(info_hash) + ".torrent")
 
     async def enqueue_torrent(self, info_hash):
         if not os.path.exists(self.get_path_for_torrent(info_hash)):
             await super(TorrentCrawlerFile, self).enqueue_torrent(info_hash)
 
-    async def save_torrent(self, info_hash, torrent):
+    async def save_torrent_metadata(self, info_hash, metadata):
         with open(self.get_path_for_torrent(info_hash), "wb") as file:
-            file.write(torrent)
+            file.write(metadata)

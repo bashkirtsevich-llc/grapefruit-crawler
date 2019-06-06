@@ -2,6 +2,7 @@ import asyncio
 
 from spyder import DHTSpyder
 from torrent import BitTorrentProtocol
+from utils import hexlify
 
 
 class TorrentCrawler(DHTSpyder):
@@ -37,14 +38,15 @@ class TorrentCrawler(DHTSpyder):
         return await done.pop() if done else None
 
     async def connect_with_peers(self, info_hash, peers):
+        print("connect_with_peers", hexlify(info_hash), peers)
         for i in range(0, len(peers), 20):
             try:
-                torrent = await self.wait_for_torrent(info_hash, peers[i: i + 20])
+                metadata = await self.wait_for_torrent(info_hash, peers[i: i + 20])
             except:
                 continue
             else:
-                if torrent:
-                    asyncio.ensure_future(self.save_torrent(info_hash, torrent), loop=self.loop)
+                if metadata:
+                    asyncio.ensure_future(self.save_torrent_metadata(info_hash, metadata), loop=self.loop)
                     break
 
         if info_hash in self.torrent_in_progress:
@@ -56,13 +58,16 @@ class TorrentCrawler(DHTSpyder):
             self.search_peers(info_hash)
 
     async def get_peers_received(self, node_id, info_hash, addr):
+        print("get_peers_received", hexlify(info_hash))
         await self.enqueue_torrent(info_hash)
 
     async def announce_peer_received(self, node_id, info_hash, port, addr):
+        print("announce_peer_received", hexlify(info_hash))
         await self.enqueue_torrent(info_hash)
 
     async def peers_values_received(self, info_hash, peers):
+        print("peers_values_received", hexlify(info_hash))
         await self.connect_with_peers(info_hash, list(peers))
 
-    async def save_torrent(self, info_hash, torrent):
-        pass
+    async def save_torrent_metadata(self, info_hash, metadata):
+        print("save_torrent", hexlify(info_hash), metadata)
